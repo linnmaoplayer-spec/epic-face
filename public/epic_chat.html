@@ -1,0 +1,184 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Epic Chat</title>
+  <link rel="icon" href="/icon.png">
+  <link rel="stylesheet" href="/epic_chat.css">
+</head>
+<body>
+  <div id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <img src="/icon.png" class="logo" alt="Epic Chat">
+      <h1>EPIC CHAT</h1>
+      <p class="muted">Seu espaço para conversar.</p>
+
+      <div class="tabs">
+        <button id="loginTab" class="tab active">Entrar</button>
+        <button id="registerTab" class="tab">Criar conta</button>
+      </div>
+
+      <form id="authForm">
+        <label>USUÁRIO</label>
+        <input id="authUsername" minlength="3" maxlength="24" required autocomplete="username">
+        <label>SENHA</label>
+        <input id="authPassword" type="password" minlength="6" required autocomplete="current-password">
+        <div id="authError" class="error"></div>
+        <button class="primary full" type="submit" id="authSubmit">ENTRAR</button>
+      </form>
+    </div>
+  </div>
+
+  <main id="app" class="app hidden">
+    <aside class="rail">
+      <div class="rail-logo"><img src="/icon.png" alt="Epic"></div>
+      <button class="rail-button active" title="Mensagens">✉</button>
+      <button class="rail-button" id="railCreateServer" title="Criar servidor">＋</button>
+      <div class="rail-bottom">
+        <button class="rail-button" id="logoutButton" title="Sair">↪</button>
+      </div>
+    </aside>
+
+    <aside class="sidebar">
+      <header class="side-header">
+        <div>
+          <strong>EPIC CHAT</strong>
+          <small>COMUNICAÇÃO</small>
+        </div>
+        <button class="small-icon" id="profileButton" title="Editar perfil">⚙</button>
+      </header>
+
+      <section class="account">
+        <div class="avatar large" id="myAvatar">?</div>
+        <div class="account-info">
+          <strong id="myName">Usuário</strong>
+          <small id="myId">000:000.0</small>
+        </div>
+        <span class="online-dot"></span>
+      </section>
+
+      <div class="section-title">
+        <span>MENSAGENS</span>
+        <button class="small-icon" id="addFriendButton" title="Adicionar amigo">＋</button>
+      </div>
+      <div id="friendsList" class="friends-list"></div>
+
+      <div class="section-title server-title">
+        <span>SERVIDORES</span>
+        <button class="small-icon" id="createServerButton" title="Criar servidor">＋</button>
+      </div>
+      <div id="serversList" class="servers-list"></div>
+
+      <button class="join-server" id="joinServerButton">＋ Entrar com convite</button>
+    </aside>
+
+    <section class="chat">
+      <header class="chat-header">
+        <div class="chat-person">
+          <div class="avatar" id="chatAvatar">?</div>
+          <div>
+            <strong id="chatName">Selecione uma conversa</strong>
+            <small id="chatSubtitle">EPIC CHAT</small>
+          </div>
+        </div>
+        <div class="chat-actions">
+          <button class="small-icon" id="refreshButton" title="Atualizar">↻</button>
+        </div>
+      </header>
+
+      <div id="emptyChat" class="empty-chat">
+        <img src="/icon.png" alt="">
+        <h2>Bem-vindo ao Epic Chat</h2>
+        <p>Escolha um amigo para começar uma conversa.</p>
+      </div>
+
+      <div id="messages" class="messages hidden"></div>
+
+      <form id="messageForm" class="message-form hidden">
+        <input id="messageInput" maxlength="2000" placeholder="Digite sua mensagem..." autocomplete="off">
+        <button class="primary send-button" type="submit">Enviar</button>
+      </form>
+    </section>
+  </main>
+
+  <div id="profileModal" class="modal-back hidden">
+    <div class="modal">
+      <h2>Editar perfil</h2>
+      <p class="muted">Seu ID de jogador não muda quando você troca de nome.</p>
+      <div class="profile-preview">
+        <div class="avatar xlarge" id="profileAvatar">?</div>
+        <label class="file-button">Escolher foto
+          <input id="avatarFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+        </label>
+      </div>
+      <label>NOME DE USUÁRIO</label>
+      <input id="profileUsername" maxlength="24" minlength="3">
+      <label>ID DE JOGADOR</label>
+      <input id="profileId" readonly>
+      <div id="profileError" class="error"></div>
+      <div class="modal-actions">
+        <button class="secondary" data-close="profileModal">Cancelar</button>
+        <button class="primary" id="saveProfile">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="friendModal" class="modal-back hidden">
+    <div class="modal">
+      <h2>Adicionar amigo</h2>
+      <p class="muted">Pesquise pelo nome ou ID do jogador.</p>
+      <label>NOME OU ID</label>
+      <input id="friendSearch" placeholder="Nome ou 000:000.0">
+      <button class="primary full" id="searchFriend">Pesquisar</button>
+      <div id="friendResults"></div>
+      <div id="friendError" class="error"></div>
+      <div class="modal-actions">
+        <button class="secondary" data-close="friendModal">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="serverModal" class="modal-back hidden">
+    <div class="modal">
+      <h2>Criar servidor</h2>
+      <label>NOME DO SERVIDOR</label>
+      <input id="serverName" maxlength="32" placeholder="Meu servidor">
+      <div id="serverError" class="error"></div>
+      <div class="modal-actions">
+        <button class="secondary" data-close="serverModal">Cancelar</button>
+        <button class="primary" id="confirmServer">Criar servidor</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="inviteModal" class="modal-back hidden">
+    <div class="modal">
+      <h2>Convite do servidor</h2>
+      <p class="muted">Compartilhe este código com seus amigos.</p>
+      <input id="inviteCode" readonly>
+      <div class="modal-actions">
+        <button class="secondary" data-close="inviteModal">Fechar</button>
+        <button class="primary" id="copyInvite">Copiar código</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="joinModal" class="modal-back hidden">
+    <div class="modal">
+      <h2>Entrar em servidor</h2>
+      <label>CÓDIGO DO CONVITE</label>
+      <input id="joinCode" placeholder="EPIC-XXXXXXXX">
+      <div id="joinError" class="error"></div>
+      <div class="modal-actions">
+        <button class="secondary" data-close="joinModal">Cancelar</button>
+        <button class="primary" id="confirmJoin">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="/epic_chat.js"></script>
+</body>
+</html>
