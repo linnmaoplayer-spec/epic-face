@@ -2,375 +2,273 @@
 "use strict";
 
 const API = "/api";
+const $ = id => document.getElementById(id);
 
 let currentUser = null;
-let activeUser = null;
-let messagesTimer = null;
-let searchTimer = null;
-let isLoadingMessages = false;
+let currentFriend = null;
+let friends = [];
+let polling = null;
+let searchTimeout = null;
+let registering = false;
 
-const $ = (id) => document.getElementById(id);
-
-function show(element) {
-    if (element) element.classList.remove("hidden");
-}
-
-function hide(element) {
-    if (element) element.classList.add("hidden");
-}
-
-function setText(id, value) {
-    const element = $(id);
-    if (element) element.textContent = value ?? "";
-}
-
-function setImage(id, value) {
-    const element = $(id);
-    if (element) {
-        element.src = value || "/icon.png";
-    }
-}
-
-async function api(endpoint, options = {}) {
+async function api(route, options = {}) {
     const config = {
         method: options.method || "GET",
-        credentials: "include",
+        credentials: "same-origin",
         headers: {
-            ...(options.body ? { "Content-Type": "application/json" } : {}),
-            ...(options.headers || {})
-        },
-        ...(options.body
-            ? { body: JSON.stringify(options.body) }
-            : {})
+            ...(options.body ? { "Content-Type": "application/json" } : {})
+        }
     };
 
-    const response = await fetch(API + endpoint, config);
+    if (options.body) {
+        config.body = JSON.stringify(options.body);
+    }
+
+    const response = await fetch(API + route, config);
 
     let data = {};
 
     try {
         data = await response.json();
-    } catch {
-        data = {};
-    }
+    } catch {}
 
     if (response.status === 401) {
-        currentUser = null;
-        activeUser = null;
-        stopPolling();
         throw new Error("Sua sessão expirou. Entre novamente.");
     }
 
     if (!response.ok) {
-        throw new Error(data.error || data.message || `Erro ${response.status}`);
+        throw new Error(data.error || `Erro ${response.status}`);
     }
 
     return data;
 }
 
-function notify(message) {
-    alert(message);
+function toast(message) {
+    const element = $("toast");
+    if (!element) return;
+
+    element.textContent = message;
+    element.classList.remove("hidden");
+
+    clearTimeout(toast.timer);
+
+    toast.timer = setTimeout(() => {
+        element.classList.add("hidden");
+    }, 3000);
 }
 
-function stopPolling() {
-    if (messagesTimer) {
-        clearInterval(messagesTimer);
-        messagesTimer = null;
-    }
+function setAuthMode(create) {
+    registering = create;
+
+    $("authTitle").textContent = create
+        ? "Criar sua conta"
+        : "Entre na sua conta";
+
+    $("authSub").textContent = create
+        ? "Crie sua conta para começar a conversar."
+        : "Continue de onde suas conversas pararam.";
+
+    $("authSubmit").textContent = create ? "Criar conta" : "Entrar";
+    $("switchText").textContent = create
+        ? "Já tem uma conta?"
+        : "Ainda não tem uma conta?";
+
+    $("switchMode").textContent = create ? "Entrar" : "Criar conta";
+    $("password").autocomplete = create ? "new-password" : "current-password";
+    $("authError").textContent = "";
 }
 
-function startPolling() {
-    stopPolling();
+function showApp() {
+    $("auth").classList.add("hidden");
+    $("app").classList.remove("hidden");
 
-    messagesTimer = setInterval(async () => {
-        if (!currentUser) return;
+    updateProfile();
+    loadFriends();
 
-        try {
-            await refreshAll();
-        } catch (error) {
-            console.error("Erro ao atualizar:", error);
-        }
-    }, 5000);
+    if (polling) clearInterval(polling);
+
+    polling = setInterval(refreshAll, 5000);
 }
 
-// ===============================
-// LOGIN E CADASTRO
-// ===============================
-
-async function login(username, password) {
-    const data = await api("/login", {
-        method: "POST",
-        body: { username, password }
-    });
-
-    currentUser = data.user || data;
-
-    await startApp();
-}
-
-async function register(username, password) {
-    const data = await api("/register", {
-        method: "POST",
-        body: { username, password }
-    });
-
-    currentUser = data.user || data;
-
-    await startApp();
-}
-
-function setupAuthentication() {
-    $("loginForm")?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-
-        const username = $("loginUsername")?.value.trim();
-        const password = $("loginPassword")?.value;
-
-        if (!username || !password) {
-            return notify("Preencha todos os campos.");
-        }
-
-        try {
-            await login(username, password);
-        } catch (error) {
-            notify(error.message);
-        }
-    });
-
-    $("registerForm")?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-
-        const username = $("registerUsername")?.value.trim();
-        const password = $("registerPassword")?.value;
-
-        if (!username || !password) {
-            return notify("Preencha todos os campos.");
-        }
-
-        if (username.length < 3 || username.length > 24) {
-            return notify("O nome precisa ter entre 3 e 24 caracteres.");
-        }
-
-        if (password.length < 6) {
-            return notify("A senha precisa ter pelo menos 6 caracteres.");
-        }
-
-        try {
-            await register(username, password);
-        } catch (error) {
-            notify(error.message);
-        }
-    });
-
-    $("showRegister")?.addEventListener("click", () => {
-        hide($("loginScreen"));
-        show($("registerScreen"));
-    });
-
-    $("showLogin")?.addEventListener("click", () => {
-        hide($("registerScreen"));
-        show($("loginScreen"));
-    });
-}
-
-// ===============================
-// INICIALIZAÇÃO
-// ===============================
-
-async function startApp() {
+function updateProfile() {
     if (!currentUser) return;
 
-    hide($("loginScreen"));
-    hide($("registerScreen"));
-    show($("appScreen"));
+    const name = currentUser.username || "Usuário";
+    const initial = name.charAt(0).toUpperCase();
 
-    updateProfileUI();
+    $("topName").textContent = name;
+    $("sideName").textContent = name;
+    $("topAvatar").textContent = initial;
+    $("sideAvatar").textContent = initial;
+    $("accountId").textContent = "ID: " + currentUser.id;
 
-    try {
-        await refreshAll();
-        startPolling();
-    } catch (error) {
-        console.error(error);
+    if (currentUser.avatar) {
+        $("topAvatar").style.backgroundImage = `url("${currentUser.avatar}")`;
+        $("sideAvatar").style.backgroundImage = `url("${currentUser.avatar}")`;
+    } else {
+        $("topAvatar").style.backgroundImage = "";
+        $("sideAvatar").style.backgroundImage = "";
     }
 }
 
-async function initialize() {
-    setupAuthentication();
-    setupChat();
-    setupSearch();
-    setupProfile();
+// ==============================
+// LOGIN E CADASTRO
+// ==============================
 
+$("switchMode").addEventListener("click", () => {
+    setAuthMode(!registering);
+});
+
+$("authForm").addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const username = $("username").value.trim();
+    const password = $("password").value;
+
+    $("authSubmit").disabled = true;
+    $("authError").textContent = "";
+
+    try {
+        const data = await api(registering ? "/register" : "/login", {
+            method: "POST",
+            body: { username, password }
+        });
+
+        currentUser = data.user;
+
+        showApp();
+    } catch (error) {
+        $("authError").textContent = error.message;
+    } finally {
+        $("authSubmit").disabled = false;
+    }
+});
+
+async function initialize() {
     try {
         const data = await api("/me");
 
-        currentUser = data.user || data;
-
-        await startApp();
-    } catch (error) {
-        currentUser = null;
-
-        stopPolling();
-
-        show($("loginScreen"));
-        hide($("registerScreen"));
-        hide($("appScreen"));
-
-        if (error.message.includes("expirou")) {
-            console.warn(error.message);
-        }
+        currentUser = data.user;
+        showApp();
+    } catch {
+        $("auth").classList.remove("hidden");
+        $("app").classList.add("hidden");
     }
 }
 
-// ===============================
-// PERFIL
-// ===============================
+// ==============================
+// AMIGOS
+// ==============================
 
-function updateProfileUI() {
+async function loadFriends() {
     if (!currentUser) return;
 
-    setText("currentUsername", currentUser.username);
-    setText("currentPlayerId", currentUser.id);
+    try {
+        const data = await api("/friends");
 
-    setImage("currentAvatar", currentUser.avatar);
+        friends = data.friends || [];
+
+        renderFriends();
+    } catch (error) {
+        console.error("Erro ao carregar amigos:", error);
+    }
 }
 
-function setupProfile() {
-    $("profileButton")?.addEventListener("click", () => {
-        if (!currentUser) return;
+function renderFriends() {
+    const container = $("friendList");
 
-        if ($("profileUsername")) {
-            $("profileUsername").value = currentUser.username || "";
+    container.replaceChildren();
+
+    $("friendCount").textContent = friends.length;
+
+    if (!friends.length) {
+        const empty = document.createElement("p");
+
+        empty.className = "empty-friends";
+        empty.textContent = "Nenhum amigo ainda.";
+
+        container.appendChild(empty);
+        return;
+    }
+
+    friends.forEach(friend => {
+        const button = document.createElement("button");
+
+        button.className =
+            "friend" + (currentFriend?.id === friend.id ? " active" : "");
+
+        const avatar = document.createElement("div");
+        avatar.className = "avatar";
+
+        if (friend.avatar) {
+            avatar.style.backgroundImage = `url("${friend.avatar}")`;
+        } else {
+            avatar.textContent = friend.username[0].toUpperCase();
         }
 
-        setImage("profilePreview", currentUser.avatar);
+        const info = document.createElement("div");
+        info.className = "friend-info";
 
-        show($("profileModal"));
-    });
+        const name = document.createElement("div");
+        name.className = "friend-name";
+        name.textContent = friend.username;
 
-    $("closeProfileModal")?.addEventListener("click", () => {
-        hide($("profileModal"));
-    });
+        const status = document.createElement("div");
+        status.className = "status";
+        status.textContent = friend.id;
 
-    $("profileAvatarInput")?.addEventListener("change", (event) => {
-        const file = event.target.files?.[0];
+        info.append(name, status);
+        button.append(avatar, info);
 
-        if (!file) return;
+        button.addEventListener("click", () => openChat(friend));
 
-        if (!file.type.startsWith("image/")) {
-            return notify("Selecione uma imagem válida.");
-        }
-
-        if (file.size > 4 * 1024 * 1024) {
-            return notify("A imagem deve ter no máximo 4 MB.");
-        }
-
-        const reader = new FileReader();
-
-        reader.onload = () => {
-            setImage("profilePreview", reader.result);
-        };
-
-        reader.readAsDataURL(file);
-    });
-
-    $("profileForm")?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-
-        if (!currentUser) return;
-
-        const username = $("profileUsername")?.value.trim();
-
-        if (!username || username.length < 3 || username.length > 24) {
-            return notify("O nome precisa ter entre 3 e 24 caracteres.");
-        }
-
-        let avatar = currentUser.avatar || "";
-
-        const file = $("profileAvatarInput")?.files?.[0];
-
-        if (file) {
-            avatar = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-
-                reader.readAsDataURL(file);
-            });
-        }
-
-        try {
-            const data = await api("/profile", {
-                method: "PATCH",
-                body: { username, avatar }
-            });
-
-            currentUser = data.user || data;
-
-            updateProfileUI();
-            hide($("profileModal"));
-
-            notify("Perfil atualizado!");
-        } catch (error) {
-            notify(error.message);
-        }
+        container.appendChild(button);
     });
 }
 
-// ===============================
-// PESQUISA DE USUÁRIOS
-// ===============================
+// ==============================
+// PESQUISA
+// ==============================
 
-function setupSearch() {
-    $("searchInput")?.addEventListener("input", () => {
-        clearTimeout(searchTimer);
+$("friendQuery").addEventListener("input", () => {
+    clearTimeout(searchTimeout);
 
-        const query = $("searchInput").value.trim();
+    const query = $("friendQuery").value.trim();
 
-        if (!query) {
-            $("searchResults")?.replaceChildren();
-            return;
-        }
+    if (!query) {
+        $("searchResults").replaceChildren();
+        return;
+    }
 
-        searchTimer = setTimeout(() => {
-            searchUsers(query);
-        }, 350);
-    });
-}
+    searchTimeout = setTimeout(() => searchUsers(query), 300);
+});
 
 async function searchUsers(query) {
-    if (!currentUser) return;
-
-    const results = $("searchResults");
-
-    if (!results) return;
-
     try {
         const data = await api(
             "/users/search?q=" + encodeURIComponent(query)
         );
 
-        results.replaceChildren();
+        const container = $("searchResults");
+
+        container.replaceChildren();
 
         const users = data.users || [];
 
-        if (users.length === 0) {
-            results.textContent = "Nenhum usuário encontrado.";
+        if (!users.length) {
+            const empty = document.createElement("p");
+            empty.textContent = "Nenhum usuário encontrado.";
+            empty.className = "search-empty";
+            container.appendChild(empty);
             return;
         }
 
-        users.forEach((user) => {
-            if (user.id === currentUser.id) return;
-
-            const item = document.createElement("button");
-            item.type = "button";
+        users.forEach(user => {
+            const item = document.createElement("div");
             item.className = "search-result";
 
-            const avatar = document.createElement("img");
-            avatar.src = user.avatar || "/icon.png";
-            avatar.alt = "";
-
-            const details = document.createElement("span");
+            const info = document.createElement("div");
+            info.className = "search-info";
 
             const name = document.createElement("strong");
             name.textContent = user.username;
@@ -378,272 +276,381 @@ async function searchUsers(query) {
             const id = document.createElement("small");
             id.textContent = user.id;
 
-            details.append(name, id);
-            item.append(avatar, details);
+            const button = document.createElement("button");
+            button.textContent = friends.some(f => f.id === user.id)
+                ? "Abrir"
+                : "Adicionar";
 
-            item.addEventListener("click", () => {
-                openChat(user);
+            button.addEventListener("click", async () => {
+                try {
+                    if (!friends.some(f => f.id === user.id)) {
+                        await api("/friends/request", {
+                            method: "POST",
+                            body: { user: user.id }
+                        });
+
+                        await loadFriends();
+                        toast("Usuário adicionado!");
+                    }
+
+                    $("friendModal").classList.add("hidden");
+                    openChat(user);
+                } catch (error) {
+                    toast(error.message);
+                }
             });
 
-            results.appendChild(item);
+            info.append(name, id);
+            item.append(info, button);
+            container.appendChild(item);
         });
     } catch (error) {
-        console.error("Erro na pesquisa:", error);
+        console.error(error);
     }
 }
 
-// ===============================
-// AMIGOS
-// ===============================
+// ==============================
+// ABRIR CONVERSA
+// ==============================
 
-async function loadFriends() {
-    if (!currentUser) return;
+async function openChat(friend) {
+    currentFriend = friend;
 
-    const container = $("friendsList");
+    $("welcome").classList.add("hidden");
+    $("chatHead").classList.remove("hidden");
+    $("messages").classList.remove("hidden");
+    $("composerWrap").classList.remove("hidden");
 
-    if (!container) return;
+    $("chatName").textContent = friend.username;
+    $("chatStatus").textContent = friend.id;
 
-    const data = await api("/friends");
-    const friends = data.friends || [];
-
-    container.replaceChildren();
-
-    if (friends.length === 0) {
-        container.textContent = "Você ainda não tem amigos.";
-        return;
+    if (friend.avatar) {
+        $("chatAvatar").style.backgroundImage = `url("${friend.avatar}")`;
+        $("chatAvatar").textContent = "";
+    } else {
+        $("chatAvatar").style.backgroundImage = "";
+        $("chatAvatar").textContent = friend.username[0].toUpperCase();
     }
 
-    friends.forEach((friend) => {
-        const item = document.createElement("button");
-        item.type = "button";
-        item.className = "friend-item";
-
-        const avatar = document.createElement("img");
-        avatar.src = friend.avatar || "/icon.png";
-        avatar.alt = "";
-
-        const name = document.createElement("span");
-        name.textContent = friend.username;
-
-        item.append(avatar, name);
-
-        item.addEventListener("click", () => {
-            openChat(friend);
-        });
-
-        container.appendChild(item);
-    });
-}
-
-async function addFriend(userId) {
-    try {
-        await api("/friends/request", {
-            method: "POST",
-            body: { userId }
-        });
-
-        await loadFriends();
-
-        notify("Usuário adicionado aos amigos.");
-    } catch (error) {
-        notify(error.message);
-    }
-}
-
-// ===============================
-// CHAT
-// ===============================
-
-function setupChat() {
-    $("sendButton")?.addEventListener("click", sendMessage);
-
-    $("messageInput")?.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            sendMessage();
-        }
-    });
-
-    $("logoutButton")?.addEventListener("click", logout);
-}
-
-async function openChat(user) {
-    if (!user || !user.username) return;
-
-    activeUser = user;
-
-    hide($("emptyChat"));
-    show($("activeChat"));
-
-    setText("chatUsername", user.username);
-    setText("chatId", user.id);
-
-    setImage("chatAvatar", user.avatar);
-
-    if ($("messageInput")) {
-        $("messageInput").disabled = false;
-        $("messageInput").focus();
-    }
+    renderFriends();
 
     await loadMessages();
+
+    $("messageInput").focus();
 }
 
 async function loadMessages() {
-    if (!activeUser || !currentUser || isLoadingMessages) return;
-
-    isLoadingMessages = true;
+    if (!currentFriend) return;
 
     try {
         const data = await api(
-            "/messages/" + encodeURIComponent(activeUser.username)
+            "/messages/" + encodeURIComponent(currentFriend.id)
         );
 
         renderMessages(data.messages || []);
     } catch (error) {
         console.error("Erro ao carregar mensagens:", error);
-    } finally {
-        isLoadingMessages = false;
     }
 }
 
 function renderMessages(messages) {
-    const container = $("messagesList");
-
-    if (!container) return;
-
-    const oldScroll =
-        container.scrollHeight - container.scrollTop - container.clientHeight;
+    const container = $("messages");
 
     container.replaceChildren();
 
-    messages.forEach((message) => {
+    if (!messages.length) {
+        const empty = document.createElement("div");
+        empty.className = "day-divider";
+        empty.textContent = "INÍCIO DA CONVERSA";
+
+        container.appendChild(empty);
+        return;
+    }
+
+    messages.forEach(message => {
         const mine = message.from === currentUser.id;
 
-        const item = document.createElement("div");
-        item.className = mine ? "message mine" : "message";
+        const row = document.createElement("div");
+        row.className = "message" + (mine ? " mine" : "");
 
-        const avatar = document.createElement("img");
-        avatar.className = "message-avatar";
-        avatar.src = message.sender?.avatar || "/icon.png";
-        avatar.alt = "";
+        const avatar = document.createElement("div");
+        avatar.className = "avatar";
 
-        const content = document.createElement("div");
-        content.className = "message-content";
+        const sender = message.sender;
 
-        const author = document.createElement("strong");
-        author.textContent = mine
-            ? "Você"
-            : (message.sender?.username || activeUser.username);
-
-        const text = document.createElement("p");
-        text.textContent = message.text;
-
-        const time = document.createElement("small");
-
-        if (message.createdAt) {
-            const date = new Date(message.createdAt);
-
-            time.textContent = date.toLocaleTimeString("pt-BR", {
-                hour: "2-digit",
-                minute: "2-digit"
-            });
+        if (sender?.avatar) {
+            avatar.style.backgroundImage = `url("${sender.avatar}")`;
+        } else {
+            avatar.textContent = (sender?.username || (mine
+                ? currentUser.username
+                : currentFriend.username))[0].toUpperCase();
         }
 
-        content.append(author, text, time);
-        item.append(avatar, content);
+        const content = document.createElement("div");
+        content.className = "msg-content";
 
-        container.appendChild(item);
+        const meta = document.createElement("div");
+        meta.className = "msg-meta";
+
+        const name = document.createElement("strong");
+        name.textContent = mine ? "Você" : currentFriend.username;
+
+        const time = document.createElement("time");
+
+        if (message.createdAt) {
+            time.textContent = new Date(message.createdAt)
+                .toLocaleTimeString("pt-BR", {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                });
+        }
+
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.textContent = message.text;
+
+        meta.append(name, time);
+        content.append(meta, bubble);
+        row.append(avatar, content);
+
+        container.appendChild(row);
     });
 
-    if (oldScroll < 100) {
-        container.scrollTop = container.scrollHeight;
-    }
+    container.scrollTop = container.scrollHeight;
 }
 
+// ==============================
+// ENVIAR MENSAGEM
+// ==============================
+
 async function sendMessage() {
-    if (!activeUser || !currentUser) {
-        return notify("Selecione uma conversa primeiro.");
+    if (!currentFriend) {
+        return toast("Escolha uma conversa primeiro.");
     }
 
     const input = $("messageInput");
-    const text = input?.value.trim();
+    const text = input.value.trim();
 
     if (!text) return;
 
     if (text.length > 5000) {
-        return notify("A mensagem é muito grande.");
+        return toast("A mensagem é muito grande.");
     }
 
-    const button = $("sendButton");
-
-    if (button) button.disabled = true;
+    $("sendBtn").disabled = true;
 
     try {
         await api("/messages", {
             method: "POST",
             body: {
-                to: activeUser.id,
+                to: currentFriend.id,
                 text
             }
         });
 
         input.value = "";
+        input.style.height = "auto";
 
         await loadMessages();
     } catch (error) {
-        notify(error.message);
+        toast(error.message);
     } finally {
-        if (button) button.disabled = false;
+        $("sendBtn").disabled = false;
+        input.focus();
     }
 }
 
-// ===============================
-// ATUALIZAÇÕES
-// ===============================
+$("sendBtn").addEventListener("click", sendMessage);
+
+$("messageInput").addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+    }
+});
+
+$("messageInput").addEventListener("input", event => {
+    event.target.style.height = "auto";
+    event.target.style.height =
+        Math.min(event.target.scrollHeight, 130) + "px";
+});
+
+// ==============================
+// MODAL DE AMIGOS
+// ==============================
+
+function openFriendModal() {
+    $("friendQuery").value = "";
+    $("searchResults").replaceChildren();
+
+    $("friendModal").classList.remove("hidden");
+    $("friendQuery").focus();
+}
+
+$("addFriendBtn").addEventListener("click", openFriendModal);
+$("welcomeAdd").addEventListener("click", openFriendModal);
+
+$("cancelFriend").addEventListener("click", () => {
+    $("friendModal").classList.add("hidden");
+});
+
+$("friendQuery").addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+        event.preventDefault();
+
+        const query = event.target.value.trim();
+
+        if (query) searchUsers(query);
+    }
+});
+
+// ==============================
+// PERFIL
+// ==============================
+
+$("profileBtn").addEventListener("click", () => {
+    $("profileUsername").value = currentUser.username;
+    $("profileAvatarInput").value = "";
+
+    if (currentUser.avatar) {
+        $("profilePreview").src = currentUser.avatar;
+    } else {
+        $("profilePreview").src = "/icon.png";
+    }
+
+    $("profileModal").classList.remove("hidden");
+});
+
+$("closeProfile").addEventListener("click", () => {
+    $("profileModal").classList.add("hidden");
+});
+
+$("profileAvatarInput").addEventListener("change", event => {
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+        return toast("Selecione uma imagem.");
+    }
+
+    if (file.size > 3 * 1024 * 1024) {
+        return toast("A imagem deve ter no máximo 3 MB.");
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+        $("profilePreview").src = reader.result;
+    };
+
+    reader.readAsDataURL(file);
+});
+
+$("profileForm").addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const username = $("profileUsername").value.trim();
+
+    if (username.length < 3 || username.length > 24) {
+        return toast("O nome precisa ter entre 3 e 24 caracteres.");
+    }
+
+    let avatar = currentUser.avatar || "";
+
+    const file = $("profileAvatarInput").files[0];
+
+    if (file) {
+        avatar = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+
+            reader.readAsDataURL(file);
+        });
+    }
+
+    try {
+        const data = await api("/profile", {
+            method: "PATCH",
+            body: { username, avatar }
+        });
+
+        currentUser = data.user;
+
+        updateProfile();
+
+        $("profileModal").classList.add("hidden");
+
+        toast("Perfil atualizado!");
+        await loadFriends();
+    } catch (error) {
+        toast(error.message);
+    }
+});
+
+// ==============================
+// ATUALIZAÇÃO AUTOMÁTICA
+// ==============================
 
 async function refreshAll() {
     if (!currentUser) return;
 
     try {
-        await Promise.all([
-            loadFriends(),
-            loadMessages()
-        ]);
+        await loadFriends();
 
-        // Só consulta atualizações quando o usuário está autenticado.
+        if (currentFriend) {
+            await loadMessages();
+        }
+
         await api("/updates");
     } catch (error) {
-        if (!error.message.includes("expirou")) {
-            console.error("Erro ao atualizar o chat:", error);
-        }
+        console.error("Atualização:", error);
     }
 }
 
-// ===============================
-// SAIR DA CONTA
-// ===============================
+// ==============================
+// NAVEGAÇÃO E LOGOUT
+// ==============================
+
+$("friendsNav").addEventListener("click", () => {
+    currentFriend = null;
+
+    $("chatHead").classList.add("hidden");
+    $("messages").classList.add("hidden");
+    $("composerWrap").classList.add("hidden");
+    $("welcome").classList.remove("hidden");
+
+    renderFriends();
+});
 
 async function logout() {
-    stopPolling();
-
     try {
-        await api("/logout", {
-            method: "POST"
-        });
+        await api("/logout", { method: "POST" });
     } catch (error) {
         console.error(error);
     }
 
-    currentUser = null;
-    activeUser = null;
+    if (polling) clearInterval(polling);
 
-    hide($("appScreen"));
-    hide($("registerScreen"));
-    show($("loginScreen"));
+    currentUser = null;
+    currentFriend = null;
+    friends = [];
+
+    $("app").classList.add("hidden");
+    $("auth").classList.remove("hidden");
+
+    $("password").value = "";
+
+    setAuthMode(false);
 }
 
-// ===============================
-// INICIAR
-// ===============================
+$("logoutBtn").addEventListener("click", logout);
+$("sideLogout").addEventListener("click", logout);
 
-document.addEventListener("DOMContentLoaded", initialize);
+// ==============================
+// INICIAR
+// ==============================
+
+initialize();
