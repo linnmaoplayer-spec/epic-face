@@ -2,172 +2,732 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Epic Chat</title>
-    <link rel="icon" href="/icon.png">
-    <link rel="stylesheet" href="/epic_chat.css">
-    <script src="/script.js" defer></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Epic Chat</title>
+<style>
+:root {
+  --bg:#101114;
+  --panel:#18191e;
+  --panel2:#202127;
+  --border:#303139;
+  --yellow:#ffd43b;
+  --text:#f4f4f5;
+  --muted:#92939d;
+  --green:#43d17d;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:Arial,Helvetica,sans-serif;
+}
+button,input{font:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+#auth{
+  min-height:100vh;display:flex;align-items:center;
+  justify-content:center;padding:20px;
+}
+.auth-box{
+  width:100%;max-width:390px;background:var(--panel);
+  border:1px solid var(--border);border-radius:15px;
+  padding:30px;
+}
+.logo{display:flex;align-items:center;gap:12px;margin-bottom:25px}
+.logo img{width:43px;height:43px;object-fit:contain}
+.logo h1{font-size:23px;margin:0}
+.logo span{color:var(--yellow)}
+.subtitle{color:var(--muted);font-size:13px;margin-bottom:22px}
+.field{margin-bottom:15px}
+.field label{display:block;font-size:13px;margin-bottom:7px;color:#c9c9ce}
+.field input{
+  width:100%;padding:13px;background:#111216;
+  border:1px solid var(--border);border-radius:8px;
+  color:white;outline:none;
+}
+.field input:focus{border-color:var(--yellow)}
+.primary{
+  border:0;background:var(--yellow);color:#171717;
+  font-weight:bold;padding:13px;border-radius:8px;
+}
+.full{width:100%}
+.switch{color:var(--muted);font-size:13px;text-align:center;margin-top:18px}
+.switch button{background:none;border:0;color:var(--yellow)}
+.error{color:#ff6868;font-size:13px;margin:10px 0}
+#app{height:100vh;display:flex;overflow:hidden}
+.sidebar{
+  width:280px;min-width:250px;background:var(--panel);
+  border-right:1px solid var(--border);display:flex;
+  flex-direction:column;
+}
+.side-top{padding:18px;border-bottom:1px solid var(--border)}
+.side-top .logo{margin:0}
+.section-title{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:18px 16px 9px;color:var(--muted);
+  font-size:11px;font-weight:bold;text-transform:uppercase;
+}
+.small-btn{
+  background:var(--panel2);color:var(--yellow);
+  border:1px solid var(--border);border-radius:7px;
+  padding:7px 10px;
+}
+#friendList{overflow:auto;flex:1;padding:5px 9px}
+.friend{
+  display:flex;align-items:center;gap:11px;
+  padding:10px;border-radius:9px;cursor:pointer;
+  margin-bottom:3px;
+}
+.friend:hover,.friend.active{background:var(--panel2)}
+.avatar{
+  width:39px;height:39px;border-radius:50%;
+  background:#34353d;object-fit:cover;flex-shrink:0;
+}
+.friend-info{min-width:0;flex:1}
+.friend-name{font-size:14px;font-weight:bold;overflow:hidden;text-overflow:ellipsis}
+.friend-id{font-size:10px;color:var(--muted);margin-top:4px}
+.side-bottom{
+  padding:13px;border-top:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.side-user{flex:1;min-width:0}
+.side-user strong{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis}
+.side-user small{color:var(--muted);font-size:10px}
+.icon-btn{
+  background:var(--panel2);border:1px solid var(--border);
+  color:white;border-radius:8px;padding:9px;
+}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.chat-header{
+  height:70px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 22px;gap:12px;
+}
+.chat-header strong{font-size:15px}
+.chat-header small{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+#welcome{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  text-align:center;padding:25px;
+}
+#welcome h2{font-size:25px}
+#welcome p{color:var(--muted);font-size:14px}
+#chatArea{flex:1;display:flex;flex-direction:column;min-height:0}
+#messages{flex:1;overflow-y:auto;padding:22px}
+.message{display:flex;gap:11px;margin-bottom:20px}
+.message img{width:37px;height:37px;border-radius:50%;object-fit:cover}
+.message-content{min-width:0}
+.message-top{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+.message-top strong{font-size:13px}
+.message-top small{font-size:10px;color:var(--muted)}
+.message-text{font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.composer{
+  padding:15px 20px;border-top:1px solid var(--border);
+  display:flex;gap:10px;
+}
+.composer input{
+  flex:1;min-width:0;background:var(--panel2);
+  border:1px solid var(--border);border-radius:9px;
+  color:white;padding:14px;outline:none;
+}
+.composer input:focus{border-color:var(--yellow)}
+.modal-bg{
+  position:fixed;inset:0;background:#000b;
+  display:flex;align-items:center;justify-content:center;
+  padding:15px;z-index:10;
+}
+.modal{
+  width:100%;max-width:420px;background:var(--panel);
+  border:1px solid var(--border);border-radius:13px;padding:22px;
+}
+.modal h2{font-size:19px;margin:0 0 20px}
+.modal-actions{display:flex;gap:9px;margin-top:15px}
+.secondary{
+  background:var(--panel2);border:1px solid var(--border);
+  color:white;padding:12px;border-radius:8px;flex:1;
+}
+.results{max-height:250px;overflow:auto;margin-top:10px}
+.result{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:10px;padding:10px;border-bottom:1px solid var(--border);
+}
+.result-name{font-size:13px;font-weight:bold}
+.result-id{font-size:10px;color:var(--muted);margin-top:4px}
+#toast{
+  position:fixed;bottom:20px;right:20px;
+  background:#25262d;border:1px solid var(--border);
+  border-radius:9px;padding:13px 17px;font-size:13px;
+  display:none;z-index:20;
+}
+@media(max-width:650px){
+  .sidebar{width:75px;min-width:75px}
+  .side-top{padding:14px 15px}
+  .side-top .logo h1,.section-title span,
+  .friend-info,.side-user,.side-bottom .icon-btn.logout{display:none}
+  .section-title{justify-content:center;padding:15px 0}
+  .friend{justify-content:center;padding:9px 0}
+  .side-bottom{justify-content:center;padding:12px 4px}
+  .side-bottom .avatar{width:38px;height:38px}
+  #messages{padding:14px}
+  .chat-header{padding:0 13px}
+  .composer{padding:10px}
+}
+</style>
 </head>
 <body>
 
-<div id="auth" class="auth-wrap">
-    <div class="auth-card">
-        <div class="brand">
-            <img src="/icon.png" alt="Epic Chat">
-            <span>EPIC CHAT</span>
-        </div>
-
-        <h1 id="authTitle">Entre na sua conta</h1>
-        <p id="authSub">Continue de onde suas conversas pararam.</p>
-
-        <form id="authForm">
-            <label for="username">NOME DE USUÁRIO</label>
-            <input id="username" maxlength="24" autocomplete="username"
-                   placeholder="Seu nome" required>
-
-            <label for="password">SENHA</label>
-            <input id="password" type="password" minlength="6"
-                   autocomplete="current-password" placeholder="Sua senha" required>
-
-            <button class="primary" id="authSubmit">Entrar</button>
-        </form>
-
-        <div class="error" id="authError"></div>
-
-        <div class="auth-switch">
-            <span id="switchText">Ainda não tem uma conta?</span>
-            <button class="text-btn" id="switchMode" type="button">Criar conta</button>
-        </div>
+<section id="auth">
+  <div class="auth-box">
+    <div class="logo">
+      <img src="/icon.png" onerror="this.style.display='none'">
+      <h1>EPIC <span>CHAT</span></h1>
     </div>
-</div>
+    <div class="subtitle" id="authSubtitle">Entre na sua conta para continuar.</div>
+    <form id="authForm">
+      <div class="field">
+        <label>Nome de usuário</label>
+        <input id="username" maxlength="24" minlength="3" required autocomplete="username">
+      </div>
+      <div class="field">
+        <label>Senha</label>
+        <input id="password" type="password" minlength="6" required autocomplete="current-password">
+      </div>
+      <button class="primary full" id="authSubmit">Entrar</button>
+      <div class="error" id="authError"></div>
+    </form>
+    <div class="switch">
+      <span id="switchText">Não tem uma conta?</span>
+      <button id="switchMode" type="button">Criar conta</button>
+    </div>
+  </div>
+</section>
 
-<div id="app" class="app hidden">
+<section id="app" class="hidden">
+  <aside class="sidebar">
+    <div class="side-top">
+      <div class="logo">
+        <img src="/icon.png" onerror="this.style.display='none'">
+        <h1>EPIC <span>CHAT</span></h1>
+      </div>
+    </div>
+    <div class="section-title">
+      <span>Mensagens</span>
+      <button class="small-btn" id="addFriend">+</button>
+    </div>
+    <div id="friendList"></div>
+    <div class="side-bottom">
+      <img class="avatar" id="sideAvatar" src="/icon.png">
+      <div class="side-user">
+        <strong id="sideName">Carregando...</strong>
+        <small id="accountId"></small>
+      </div>
+      <button class="icon-btn" id="profileBtn" title="Editar perfil">⚙</button>
+      <button class="icon-btn logout" id="logoutBtn" title="Sair">↪</button>
+    </div>
+  </aside>
 
-    <header class="topbar">
-        <div class="brand">
-            <img src="/icon.png" alt="">
-            <span>EPIC CHAT</span>
-        </div>
-
-        <div class="top-right">
-            <button class="account-pill" id="profileBtn">
-                <div class="avatar" id="topAvatar">U</div>
-                <span id="topName">Usuário</span>
-            </button>
-
-            <button class="icon-btn" id="logoutBtn" title="Sair">↪</button>
-        </div>
+  <main class="main">
+    <header class="chat-header">
+      <img class="avatar hidden" id="chatAvatar">
+      <div>
+        <strong id="chatName">Epic Chat</strong>
+        <small id="chatStatus">Suas conversas</small>
+      </div>
     </header>
 
-    <aside class="sidebar">
-        <div class="side-head">
-            <span class="side-label">MENU PRINCIPAL</span>
-            <button class="add-btn" id="addFriendBtn">+</button>
-        </div>
+    <section id="welcome">
+      <div>
+        <h2>Bem-vindo ao Epic Chat</h2>
+        <p>Adicione alguém para começar uma conversa.</p>
+        <button class="primary" id="welcomeAdd">Adicionar amigo</button>
+      </div>
+    </section>
 
-        <button class="nav-item active" id="friendsNav">
-            <span class="nav-icon">♧</span>
-            <span>Amigos</span>
-        </button>
+    <section id="chatArea" class="hidden">
+      <div id="messages"></div>
+      <form class="composer" id="messageForm">
+        <input id="messageInput" maxlength="4000" placeholder="Digite uma mensagem..." autocomplete="off">
+        <button class="primary" type="submit">Enviar</button>
+      </form>
+    </section>
+  </main>
+</section>
 
-        <div class="section-title">
-            MENSAGENS DIRETAS
-            <span id="friendCount">0</span>
-        </div>
-
-        <div class="friend-list" id="friendList"></div>
-
-        <div class="side-bottom">
-            <div class="avatar" id="sideAvatar">U</div>
-
-            <div class="side-user">
-                <strong id="sideName">Usuário</strong>
-                <small id="accountId">ID: —</small>
-            </div>
-
-            <button class="icon-btn" id="sideLogout" title="Sair">↪</button>
-        </div>
-    </aside>
-
-    <main class="main">
-
-        <div class="chat-head hidden" id="chatHead">
-            <div class="chat-person">
-                <div class="avatar" id="chatAvatar">?</div>
-                <div>
-                    <strong id="chatName">Contato</strong>
-                    <small id="chatStatus">Mensagem direta</small>
-                </div>
-            </div>
-        </div>
-
-        <div class="welcome" id="welcome">
-            <img src="/icon.png" alt="Epic Chat">
-            <h2>Bem-vindo ao Epic Chat</h2>
-            <p>
-                Suas conversas ficam aqui. Escolha um amigo na lista
-                ou adicione alguém para começar a conversar.
-            </p>
-            <button class="primary welcome-button" id="welcomeAdd">
-                Adicionar amigo
-            </button>
-        </div>
-
-        <div class="messages hidden" id="messages"></div>
-
-        <div class="composer-wrap hidden" id="composerWrap">
-            <div class="composer">
-                <textarea id="messageInput" rows="1"
-                          placeholder="Enviar mensagem..."></textarea>
-
-                <button class="send" id="sendBtn" title="Enviar">➤</button>
-            </div>
-            <div class="empty-note">Pressione Enter para enviar.</div>
-        </div>
-
-    </main>
-</div>
-
-<!-- Modal de adicionar amigos -->
-<div class="modal-back hidden" id="friendModal">
-    <div class="modal">
-        <h3>Adicionar amigo</h3>
-        <p>Pesquise pelo nome ou pelo ID do jogador.</p>
-
-        <input id="friendQuery" placeholder="Nome ou ID do usuário">
-
-        <div id="searchResults" class="search-results"></div>
-
-        <div class="modal-actions">
-            <button class="secondary" id="cancelFriend">Fechar</button>
-        </div>
+<div class="modal-bg hidden" id="friendModal">
+  <div class="modal">
+    <h2>Adicionar amigo</h2>
+    <div class="field">
+      <label>Nome ou ID do jogador</label>
+      <input id="friendQuery" placeholder="Pesquisar jogador...">
     </div>
-</div>
-
-<!-- Modal de perfil -->
-<div class="modal-back hidden" id="profileModal">
-    <div class="modal">
-        <h3>Editar perfil</h3>
-
-        <form id="profileForm">
-            <img id="profilePreview" class="profile-preview" src="/icon.png" alt="Foto de perfil">
-
-            <label for="profileAvatarInput">FOTO DE PERFIL</label>
-            <input id="profileAvatarInput" type="file" accept="image/*">
-
-            <label for="profileUsername">NOME DE USUÁRIO</label>
-            <input id="profileUsername" maxlength="24" minlength="3" required>
-
-            <div class="modal-actions">
-                <button class="secondary" type="button" id="closeProfile">Cancelar</button>
-                <button class="primary" type="submit">Salvar</button>
-            </div>
-        </form>
+    <div class="results" id="searchResults"></div>
+    <div class="modal-actions">
+      <button class="secondary" data-close="friendModal">Fechar</button>
     </div>
+  </div>
 </div>
 
-<div id="toast" class="toast hidden"></div>
+<div class="modal-bg hidden" id="profileModal">
+  <div class="modal">
+    <h2>Editar perfil</h2>
+    <form id="profileForm">
+      <div style="display:flex;align-items:center;gap:15px;margin-bottom:20px">
+        <img class="avatar" id="profilePreview" src="/icon.png" style="width:65px;height:65px">
+        <label class="small-btn" for="profileAvatarInput">Alterar foto</label>
+        <input id="profileAvatarInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+      </div>
+      <div class="field">
+        <label>Novo nome de usuário</label>
+        <input id="profileUsername" minlength="3" maxlength="24" required>
+      </div>
+      <div class="field">
+        <label>ID permanente</label>
+        <input id="profileId" disabled>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary" type="button" data-close="profileModal">Cancelar</button>
+        <button class="primary" type="submit">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
 
+<div id="toast"></div>
+
+<script>
+const API = "/api";
+let currentUser = null;
+let currentFriend = null;
+let friends = [];
+let searchTimer = null;
+let pollTimer = null;
+let avatarData = null;
+let isRegister = false;
+
+const $ = id => document.getElementById(id);
+
+async function api(url, options = {}) {
+  const response = await fetch(API + url, {
+    credentials: "same-origin",
+    ...options,
+    headers: {
+      ...(options.body ? {"Content-Type":"application/json"} : {}),
+      ...(options.headers || {})
+    }
+  });
+
+  let data = {};
+  try { data = await response.json(); } catch {}
+
+  if (!response.ok) {
+    if (response.status === 401) throw new Error("Sua sessão expirou. Entre novamente.");
+    throw new Error(data.error || data.message || "Erro na comunicação com o servidor.");
+  }
+  return data;
+}
+
+function toast(message) {
+  $("toast").textContent = message;
+  $("toast").style.display = "block";
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => $("toast").style.display = "none", 3000);
+}
+
+function avatarOf(user) {
+  return user?.avatar || "/icon.png";
+}
+
+function showAuth() {
+  $("auth").classList.remove("hidden");
+  $("app").classList.add("hidden");
+}
+
+function showApp() {
+  $("auth").classList.add("hidden");
+  $("app").classList.remove("hidden");
+}
+
+function setAuthMode(register) {
+  isRegister = register;
+  $("authSubmit").textContent = register ? "Criar conta" : "Entrar";
+  $("authSubtitle").textContent = register
+    ? "Crie sua conta no Epic Chat."
+    : "Entre na sua conta para continuar.";
+  $("switchText").textContent = register
+    ? "Já tem uma conta?"
+    : "Não tem uma conta?";
+  $("switchMode").textContent = register ? "Entrar" : "Criar conta";
+  $("password").autocomplete = register ? "new-password" : "current-password";
+}
+
+$("switchMode").onclick = () => setAuthMode(!isRegister);
+
+$("authForm").onsubmit = async event => {
+  event.preventDefault();
+  $("authError").textContent = "";
+  const username = $("username").value.trim();
+  const password = $("password").value;
+
+  try {
+    const result = await api(isRegister ? "/register" : "/login", {
+      method:"POST",
+      body:JSON.stringify({username,password})
+    });
+    currentUser = result.user || result;
+    await initialize();
+  } catch (error) {
+    $("authError").textContent = error.message;
+  }
+};
+
+async function initialize() {
+  const result = await api("/me");
+  currentUser = result.user || result;
+  if (!currentUser || !currentUser.id) throw new Error("Não foi possível carregar sua conta.");
+  showApp();
+  renderCurrentUser();
+  await loadFriends();
+  startPolling();
+}
+
+function renderCurrentUser() {
+  $("sideName").textContent = currentUser.username || "Jogador";
+  $("accountId").textContent = currentUser.id || "";
+  $("sideAvatar").src = avatarOf(currentUser);
+}
+
+async function loadFriends() {
+  const result = await api("/friends");
+  friends = Array.isArray(result) ? result : (result.friends || []);
+
+  // Atualiza o amigo selecionado com os dados mais recentes.
+  if (currentFriend) {
+    const updated = friends.find(f => f.id === currentFriend.id);
+    if (updated) currentFriend = {...currentFriend, ...updated};
+    else currentFriend = null;
+  }
+
+  renderFriends();
+
+  if (currentFriend) {
+    renderChatHeader();
+  } else {
+    $("chatArea").classList.add("hidden");
+    $("welcome").classList.remove("hidden");
+    $("chatAvatar").classList.add("hidden");
+    $("chatName").textContent = "Epic Chat";
+    $("chatStatus").textContent = "Suas conversas";
+  }
+}
+
+function renderFriends() {
+  const list = $("friendList");
+  list.replaceChildren();
+
+  for (const friend of friends) {
+    const item = document.createElement("div");
+    item.className = "friend" + (currentFriend?.id === friend.id ? " active" : "");
+    const avatar = document.createElement("img");
+    avatar.className = "avatar";
+    avatar.src = avatarOf(friend);
+
+    const info = document.createElement("div");
+    info.className = "friend-info";
+    const name = document.createElement("div");
+    name.className = "friend-name";
+    name.textContent = friend.username || "Jogador";
+    const id = document.createElement("div");
+    id.className = "friend-id";
+    id.textContent = friend.id || "";
+
+    info.append(name,id);
+    item.append(avatar,info);
+    item.onclick = () => openChat(friend);
+    list.append(item);
+  }
+}
+
+async function openChat(friend) {
+  currentFriend = friend;
+  renderFriends();
+  renderChatHeader();
+  $("welcome").classList.add("hidden");
+  $("chatArea").classList.remove("hidden");
+  await loadMessages();
+  $("messageInput").focus();
+}
+
+function renderChatHeader() {
+  if (!currentFriend) return;
+  $("chatAvatar").src = avatarOf(currentFriend);
+  $("chatAvatar").classList.remove("hidden");
+  $("chatName").textContent = currentFriend.username || "Jogador";
+  $("chatStatus").textContent = currentFriend.id || "";
+}
+
+async function loadMessages() {
+  if (!currentFriend) return;
+  try {
+    const result = await api("/messages/" + encodeURIComponent(currentFriend.id));
+    const messages = Array.isArray(result) ? result : (result.messages || []);
+    renderMessages(messages);
+  } catch (error) {
+    if (error.message.includes("sessão")) sessionExpired();
+  }
+}
+
+function renderMessages(messages) {
+  const container = $("messages");
+  const wasBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+  container.replaceChildren();
+
+  for (const message of messages) {
+    const mine = message.from === currentUser.id;
+    const sender = mine ? currentUser : (
+      message.sender || currentFriend
+    );
+
+    const line = document.createElement("div");
+    line.className = "message";
+
+    const avatar = document.createElement("img");
+    avatar.src = avatarOf(sender);
+
+    const content = document.createElement("div");
+    content.className = "message-content";
+
+    const top = document.createElement("div");
+    top.className = "message-top";
+
+    const name = document.createElement("strong");
+    name.textContent = sender?.username || (mine ? currentUser.username : currentFriend.username) || "Jogador";
+
+    const date = document.createElement("small");
+    if (message.createdAt) {
+      const parsed = new Date(message.createdAt);
+      if (!isNaN(parsed)) date.textContent = parsed.toLocaleString("pt-BR");
+    }
+
+    const text = document.createElement("div");
+    text.className = "message-text";
+    text.textContent = message.text || "";
+
+    top.append(name,date);
+    content.append(top,text);
+    line.append(avatar,content);
+    container.append(line);
+  }
+
+  if (wasBottom) container.scrollTop = container.scrollHeight;
+}
+
+$("messageForm").onsubmit = async event => {
+  event.preventDefault();
+  if (!currentFriend) return;
+  const text = $("messageInput").value.trim();
+  if (!text) return;
+
+  $("messageInput").value = "";
+  try {
+    await api("/messages", {
+      method:"POST",
+      body:JSON.stringify({to:currentFriend.id,text})
+    });
+    await loadMessages();
+  } catch (error) {
+    toast(error.message);
+  }
+};
+
+$("addFriend").onclick = $("welcomeAdd").onclick = () => {
+  $("friendModal").classList.remove("hidden");
+  $("friendQuery").value = "";
+  $("searchResults").replaceChildren();
+  $("friendQuery").focus();
+};
+
+$("friendQuery").oninput = () => {
+  clearTimeout(searchTimer);
+  const query = $("friendQuery").value.trim();
+  if (query.length < 2) {
+    $("searchResults").replaceChildren();
+    return;
+  }
+  searchTimer = setTimeout(() => searchUsers(query), 350);
+};
+
+async function searchUsers(query) {
+  try {
+    const result = await api("/users/search?q=" + encodeURIComponent(query));
+    const users = Array.isArray(result) ? result : (result.users || []);
+    const container = $("searchResults");
+    container.replaceChildren();
+
+    for (const user of users) {
+      if (user.id === currentUser.id) continue;
+
+      const row = document.createElement("div");
+      row.className = "result";
+
+      const info = document.createElement("div");
+      const name = document.createElement("div");
+      name.className = "result-name";
+      name.textContent = user.username || "Jogador";
+      const id = document.createElement("div");
+      id.className = "result-id";
+      id.textContent = user.id || "";
+      info.append(name,id);
+
+      const button = document.createElement("button");
+      button.className = "small-btn";
+      button.textContent = friends.some(f => f.id === user.id) ? "Abrir" : "Adicionar";
+      button.onclick = async () => {
+        if (friends.some(f => f.id === user.id)) {
+          $("friendModal").classList.add("hidden");
+          const existing = friends.find(f => f.id === user.id);
+          await openChat(existing);
+          return;
+        }
+        try {
+          await api("/friends/request", {
+            method:"POST",
+            body:JSON.stringify({userId:user.id})
+          });
+          await loadFriends();
+          $("friendModal").classList.add("hidden");
+          const added = friends.find(f => f.id === user.id);
+          if (added) await openChat(added);
+          toast("Amigo adicionado!");
+        } catch (error) {
+          toast(error.message);
+        }
+      };
+
+      row.append(info,button);
+      container.append(row);
+    }
+
+    if (!container.children.length) {
+      container.textContent = "Nenhum jogador encontrado.";
+    }
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+$("profileBtn").onclick = () => {
+  avatarData = null;
+  $("profileUsername").value = currentUser.username || "";
+  $("profileId").value = currentUser.id || "";
+  $("profilePreview").src = avatarOf(currentUser);
+  $("profileModal").classList.remove("hidden");
+};
+
+$("profileAvatarInput").onchange = event => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  if (file.size > 3 * 1024 * 1024) {
+    toast("A imagem deve ter no máximo 3 MB.");
+    event.target.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    avatarData = reader.result;
+    $("profilePreview").src = avatarData;
+  };
+  reader.readAsDataURL(file);
+};
+
+$("profileForm").onsubmit = async event => {
+  event.preventDefault();
+  const username = $("profileUsername").value.trim();
+
+  if (username.length < 3 || username.length > 24) {
+    toast("O nome deve ter entre 3 e 24 caracteres.");
+    return;
+  }
+
+  try {
+    const result = await api("/profile", {
+      method:"PATCH",
+      body:JSON.stringify({
+        username,
+        ...(avatarData ? {avatar:avatarData} : {})
+      })
+    });
+
+    // Atualiza o usuário local com a resposta do servidor.
+    currentUser = result.user || result;
+    renderCurrentUser();
+
+    // Atualiza todas as telas que mostram o nome do usuário.
+    $("profileModal").classList.add("hidden");
+    await loadFriends();
+    if (currentFriend) await loadMessages();
+
+    toast("Perfil atualizado!");
+  } catch (error) {
+    toast(error.message);
+  }
+};
+
+document.querySelectorAll("[data-close]").forEach(button => {
+  button.onclick = () => $(button.dataset.close).classList.add("hidden");
+});
+
+$("logoutBtn").onclick = logout;
+
+async function logout() {
+  try { await api("/logout",{method:"POST"}); } catch {}
+  stopPolling();
+  currentUser = null;
+  currentFriend = null;
+  friends = [];
+  showAuth();
+}
+
+function sessionExpired() {
+  stopPolling();
+  currentUser = null;
+  currentFriend = null;
+  showAuth();
+  $("authError").textContent = "Sua sessão expirou. Entre novamente.";
+}
+
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(async () => {
+    if (!currentUser) return;
+    try {
+      // Busca os nomes atualizados do servidor periodicamente.
+      const me = await api("/me");
+      currentUser = me.user || me;
+      renderCurrentUser();
+      await loadFriends();
+      if (currentFriend) await loadMessages();
+    } catch (error) {
+      if (error.message.includes("sessão")) sessionExpired();
+    }
+  }, 5000);
+}
+
+function stopPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = null;
+}
+
+(async function boot() {
+  setAuthMode(false);
+  try {
+    await initialize();
+  } catch (error) {
+    showAuth();
+    if (!error.message.includes("401")) {
+      $("authError").textContent = error.message;
+    }
+  }
+})();
+</script>
 </body>
 </html>
