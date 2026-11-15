@@ -11,18 +11,14 @@ const fs = require("fs");
 const app = express();
 
 const PORT = process.env.PORT || 3000;
-const BIN_ID = process.env.JSONBIN_BIN_ID;
-const ACCESS_KEY = process.env.JSONBIN_ACCESS_KEY;
+const JSONBIN_BIN_ID = process.env.JSONBIN_BIN_ID;
+const JSONBIN_ACCESS_KEY = process.env.JSONBIN_ACCESS_KEY;
 const SESSION_SECRET = process.env.SESSION_SECRET;
 
-if (!BIN_ID || !ACCESS_KEY || !SESSION_SECRET) {
-    console.error("ERRO: Configure JSONBIN_BIN_ID, JSONBIN_ACCESS_KEY e SESSION_SECRET.");
+if (!JSONBIN_BIN_ID || !JSONBIN_ACCESS_KEY || !SESSION_SECRET) {
+    console.error("ERRO: configure JSONBIN_BIN_ID, JSONBIN_ACCESS_KEY e SESSION_SECRET.");
     process.exit(1);
 }
-
-// ======================================================
-// CONFIGURAÇÃO
-// ======================================================
 
 app.set("trust proxy", 1);
 
@@ -51,7 +47,6 @@ let db = {
     messages: [],
     servers: [],
     invites: [],
-    nextPlayer: 0,
     nextServer: 1,
     updatedAt: null
 };
@@ -59,138 +54,110 @@ let db = {
 let databaseReady = false;
 let saveQueue = Promise.resolve();
 
-async function jsonBinRequest(method, body) {
-    const response = await fetch(
-        `https://api.jsonbin.io/v3/b/${BIN_ID}${method === "GET" ? "/latest" : ""}`,
-        {
-            method,
-            headers: {
-                "Content-Type": "application/json",
-                "X-Access-Key": ACCESS_KEY
-            },
-            ...(body ? { body: JSON.stringify(body) } : {})
-        }
-    );
+async function jsonBinRequest(method, data = null) {
+    const url = method === "GET"
+        ? `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`
+        : `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 
-    const responseText = await response.text();
+    const response = await fetch(url, {
+        method,
+        headers: {
+            "Content-Type": "application/json",
+            "X-Access-Key": JSONBIN_ACCESS_KEY,
+            "X-Bin-Meta": "false"
+        },
+        ...(data ? { body: JSON.stringify(data) } : {})
+    });
+
+    const text = await response.text();
 
     if (!response.ok) {
-        throw new Error(
-            `JSONBin retornou ${response.status}: ${responseText}`
-        );
+        throw new Error(`JSONBin ${response.status}: ${text}`);
     }
 
-    return responseText ? JSON.parse(responseText) : {};
+    if (!text) return null;
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return null;
+    }
 }
 
 async function loadDB() {
     console.log("Conectando ao JSONBin...");
 
     const result = await jsonBinRequest("GET");
-    const data = result.record || {};
 
-    // Preserva campos desconhecidos já existentes no JSONBin.
-    db = {
-        ...data,
-        users: Array.isArray(data.users) ? data.users : [],
-        messages: Array.isArray(data.messages) ? data.messages : [],
-        servers: Array.isArray(data.servers) ? data.servers : [],
-        invites: Array.isArray(data.invites) ? data.invites : [],
-        nextPlayer: Number(data.nextPlayer) || 0,
-        nextServer: Number(data.nextServer) || 1
-    };
+    let saved = result?.record || result || {};
 
-    for (const user of db.users) {
-        if (!user.id) {
-            user.id = generatePlayerId();
-        }
-
-        if (!Array.isArray(user.friends)) {
-            user.friends = [];
-        }
-
-        if (!user.createdAt) {
-            user.createdAt = new Date().toISOString();
-        }
+    if (typeof saved !== "object" || Array.isArray(saved)) {
+        saved = {};
     }
 
-    for (const server of db.servers) {
-        if (!Array.isArray(server.members)) {
-            server.members = [];
-        }
+    db = {
+        ...db,
+        ...saved,
+        users: Array.isArray(saved.users) ? saved.users : [],
+        messages: Array.isArray(saved.messages) ? saved.messages : [],
+        servers: Array.isArray(saved.servers) ? saved.servers : [],
+        invites: Array.isArray(saved.invites) ? saved.invites : [],
+        nextServer: Number(saved.nextServer) || 1
+    };
+
+    // Corrige dados antigos de usuários
+    for (const user of db.users) {
+        if (!user.id) user.id = generatePlayerID();
+        if (!Array.isArray(user.friends)) user.friends = [];
+        if (!user.avatar) user.avatar = "";
+        if (!user.createdAt) user.createdAt = new Date().toISOString();
+        if (!user.status) user.status = "offline";
     }
 
     databaseReady = true;
 
     console.log("Banco de dados carregado.");
-    console.log("Usuários:", db.users.length);
-    console.log("Mensagens:", db.messages.length);
-    console.log("Servidores:", db.servers.length);
-
-    await saveDB();
+    console.log("Contas cadastradas:", db.users.length);
 }
 
 function saveDB() {
-    saveQueue = saveQueue.then(async () => {
+    const task = saveQueue.catch(() => {}).then(async () => {
         db.updatedAt = new Date().toISOString();
         await jsonBinRequest("PUT", db);
     });
 
-    return saveQueue;
-}
-
-// ======================================================
-// IDS
-// ======================================================
-
-function generatePlayerId() {
-    let id;
-
-    do {
-        const number = crypto.randomInt(0, 10000000);
-
-        const first = Math.floor(number / 10000);
-        const second = Math.floor(number / 10) % 1000;
-        const third = number % 10;
-
-        id =
-            String(first).padStart(3, "0") + ":" +
-            String(second).padStart(3, "0") + "." +
-            third;
-
-    } while (db.users.some(user => user.id === id));
-
-    return id;
-}
-
-function generateServerId() {
-    let id;
-
-    do {
-        id = "SRV-" + String(db.nextServer++).padStart(6, "0");
-    } while (db.servers.some(server => server.id === id));
-
-    return id;
-}
-
-function generateInviteCode() {
-    return "EPIC-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+    saveQueue = task;
+    return task;
 }
 
 // ======================================================
 // FUNÇÕES AUXILIARES
 // ======================================================
 
-function findUserByUsername(username) {
-    return db.users.find(
-        user =>
-            user.username.toLowerCase() ===
-            String(username).toLowerCase()
-    );
+function generatePlayerID() {
+    const number = crypto.randomInt(0, 10000000);
+    const value = String(number).padStart(7, "0");
+
+    return `${value.slice(0, 3)}:${value.slice(3, 6)}.${value.slice(6)}`;
 }
 
-function findUserById(id) {
+function generateServerID() {
+    const number = db.nextServer++;
+    return `SRV-${String(number).padStart(6, "0")}`;
+}
+
+function generateInviteCode() {
+    return "EPIC-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+}
+
+function findUserByID(id) {
     return db.users.find(user => user.id === id);
+}
+
+function findUserByUsername(username) {
+    return db.users.find(
+        user => user.username.toLowerCase() === String(username).toLowerCase()
+    );
 }
 
 function publicUser(user) {
@@ -199,39 +166,35 @@ function publicUser(user) {
     return {
         id: user.id,
         username: user.username,
-        avatar: user.avatar || null,
+        avatar: user.avatar || "",
         status: user.status || "offline",
         createdAt: user.createdAt
     };
 }
 
-function validUsername(username) {
-    return (
-        typeof username === "string" &&
-        /^[a-zA-Z0-9_]{3,24}$/.test(username)
-    );
-}
-
-function auth(req, res, next) {
+function requireDatabase(req, res, next) {
     if (!databaseReady) {
         return res.status(503).json({
-            error: "Banco de dados ainda não está pronto."
+            error: "O banco de dados ainda está carregando."
         });
     }
 
-    if (!req.session.userId) {
+    next();
+}
+
+function requireAuth(req, res, next) {
+    if (!req.session || !req.session.userId) {
         return res.status(401).json({
             error: "Você precisa entrar na sua conta."
         });
     }
 
-    const user = findUserById(req.session.userId);
+    const user = findUserByID(req.session.userId);
 
     if (!user) {
-        return req.session.destroy(() => {
-            res.status(401).json({
-                error: "Sessão inválida."
-            });
+        req.session.destroy(() => {});
+        return res.status(401).json({
+            error: "Sessão inválida. Entre novamente."
         });
     }
 
@@ -239,67 +202,69 @@ function auth(req, res, next) {
     next();
 }
 
-function serverMember(server, userId) {
-    return server.members.includes(userId);
+function validUsername(username) {
+    return typeof username === "string" &&
+        username.trim().length >= 3 &&
+        username.trim().length <= 24 &&
+        /^[\p{L}\p{N}_ .-]+$/u.test(username.trim());
+}
+
+function validPassword(password) {
+    return typeof password === "string" &&
+        password.length >= 6 &&
+        password.length <= 128;
 }
 
 // ======================================================
-// ARQUIVOS NA MESMA PASTA DO SERVER.JS
+// ARQUIVOS DO SITE
 // ======================================================
 
-// Somente arquivos públicos são disponibilizados.
-// O .env e o próprio server.js não são expostos.
+function sendPublicFile(filename, res) {
+    const filePath = path.join(__dirname, filename);
 
-const files = {
-    "/epic_chat.html": "epic_chat.html",
-    "/epic_chat.css": "epic_chat.css",
-    "/epic_chat.js": "epic_chat.js",
-    "/icon.png": "icon.png"
-};
-
-app.get("/", (req, res) => {
-    const file = path.join(__dirname, "epic_chat.html");
-
-    if (!fs.existsSync(file)) {
-        return res.status(404).send("epic_chat.html não encontrado.");
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).send("Arquivo não encontrado: " + filename);
     }
 
-    res.sendFile(file);
+    res.sendFile(filePath);
+}
+
+app.get("/", (req, res) => {
+    sendPublicFile("epic_chat.html", res);
 });
 
-for (const [url, filename] of Object.entries(files)) {
-    app.get(url, (req, res) => {
-        const file = path.join(__dirname, filename);
+app.get("/epic_chat.html", (req, res) => {
+    sendPublicFile("epic_chat.html", res);
+});
 
-        if (!fs.existsSync(file)) {
-            return res.status(404).send(
-                "Arquivo não encontrado: " + filename
-            );
-        }
+app.get("/epic_chat.css", (req, res) => {
+    sendPublicFile("epic_chat.css", res);
+});
 
-        res.sendFile(file);
-    });
-}
+app.get("/epic_chat.js", (req, res) => {
+    sendPublicFile("epic_chat.js", res);
+});
+
+app.get("/icon.png", (req, res) => {
+    sendPublicFile("icon.png", res);
+});
 
 // ======================================================
 // CADASTRO
 // ======================================================
 
-app.post("/api/register", async (req, res) => {
+app.post("/api/register", requireDatabase, async (req, res, next) => {
     try {
-        const { username, password } = req.body;
+        const username = String(req.body.username || "").trim();
+        const password = req.body.password;
 
         if (!validUsername(username)) {
             return res.status(400).json({
-                error: "O usuário precisa ter de 3 a 24 caracteres. Use letras, números e _."
+                error: "O nome deve ter entre 3 e 24 caracteres. Use letras, números e _ . -"
             });
         }
 
-        if (
-            typeof password !== "string" ||
-            password.length < 6 ||
-            password.length > 128
-        ) {
+        if (!validPassword(password)) {
             return res.status(400).json({
                 error: "A senha precisa ter entre 6 e 128 caracteres."
             });
@@ -313,11 +278,17 @@ app.post("/api/register", async (req, res) => {
 
         const passwordHash = await bcrypt.hash(password, 12);
 
+        let playerID;
+
+        do {
+            playerID = generatePlayerID();
+        } while (findUserByID(playerID));
+
         const user = {
-            id: generatePlayerId(),
+            id: playerID,
             username,
-            passwordHash,
-            avatar: null,
+            password: passwordHash,
+            avatar: "",
             friends: [],
             status: "online",
             createdAt: new Date().toISOString()
@@ -328,36 +299,21 @@ app.post("/api/register", async (req, res) => {
         await saveDB();
 
         req.session.regenerate(err => {
-            if (err) {
-                console.error("ERRO NA SESSÃO:", err);
-                return res.status(500).json({
-                    error: "Não foi possível criar sua sessão."
-                });
-            }
+            if (err) return next(err);
 
             req.session.userId = user.id;
 
             req.session.save(saveError => {
-                if (saveError) {
-                    console.error(saveError);
-                    return res.status(500).json({
-                        error: "Não foi possível salvar sua sessão."
-                    });
-                }
+                if (saveError) return next(saveError);
 
-                res.json({
+                res.status(201).json({
                     success: true,
                     user: publicUser(user)
                 });
             });
         });
-
     } catch (error) {
-        console.error("ERRO NO CADASTRO:", error);
-
-        res.status(500).json({
-            error: "Erro interno ao criar conta."
-        });
+        next(error);
     }
 });
 
@@ -365,18 +321,14 @@ app.post("/api/register", async (req, res) => {
 // LOGIN
 // ======================================================
 
-app.post("/api/login", async (req, res) => {
+app.post("/api/login", requireDatabase, async (req, res, next) => {
     try {
-        const { username, password } = req.body;
+        const username = String(req.body.username || "").trim();
+        const password = req.body.password;
 
-        if (
-            typeof username !== "string" ||
-            typeof password !== "string" ||
-            !username ||
-            !password
-        ) {
+        if (!username || typeof password !== "string") {
             return res.status(400).json({
-                error: "Informe usuário e senha."
+                error: "Preencha o usuário e a senha."
             });
         }
 
@@ -388,23 +340,17 @@ app.post("/api/login", async (req, res) => {
             });
         }
 
-        const storedPassword = user.passwordHash || user.password;
-
-        if (typeof storedPassword !== "string") {
-            return res.status(500).json({
-                error: "A conta não possui uma senha válida."
-            });
-        }
-
         let passwordCorrect = false;
 
-        if (storedPassword.startsWith("$2")) {
-            passwordCorrect = await bcrypt.compare(
-                password,
-                storedPassword
-            );
+        if (String(user.password).startsWith("$2")) {
+            passwordCorrect = await bcrypt.compare(password, user.password);
         } else {
-            passwordCorrect = password === storedPassword;
+            // Compatibilidade com contas antigas.
+            passwordCorrect = user.password === password;
+
+            if (passwordCorrect) {
+                user.password = await bcrypt.hash(password, 12);
+            }
         }
 
         if (!passwordCorrect) {
@@ -413,84 +359,56 @@ app.post("/api/login", async (req, res) => {
             });
         }
 
-        // Converte senhas antigas para hash.
-        if (!user.passwordHash) {
-            user.passwordHash = await bcrypt.hash(password, 12);
-            delete user.password;
-        }
-
-        req.session.regenerate(err => {
-            if (err) {
-                console.error("ERRO AO REGENERAR SESSÃO:", err);
-
-                return res.status(500).json({
-                    error: "Não foi possível iniciar a sessão."
-                });
-            }
+        req.session.regenerate(async err => {
+            if (err) return next(err);
 
             req.session.userId = user.id;
             user.status = "online";
+            user.lastSeen = new Date().toISOString();
 
-            saveDB()
-                .then(() => {
-                    req.session.save(saveError => {
-                        if (saveError) {
-                            console.error(
-                                "ERRO AO SALVAR SESSÃO:",
-                                saveError
-                            );
+            try {
+                await saveDB();
 
-                            return res.status(500).json({
-                                error: "Não foi possível salvar a sessão."
-                            });
-                        }
+                req.session.save(sessionError => {
+                    if (sessionError) return next(sessionError);
 
-                        res.json({
-                            success: true,
-                            user: publicUser(user)
-                        });
-                    });
-                })
-                .catch(error => {
-                    console.error("ERRO AO SALVAR LOGIN:", error);
-
-                    res.status(500).json({
-                        error: "Erro ao salvar os dados do login."
+                    res.json({
+                        success: true,
+                        user: publicUser(user)
                     });
                 });
+            } catch (error) {
+                next(error);
+            }
         });
-
     } catch (error) {
-        console.error("ERRO NO LOGIN:", error);
-
-        res.status(500).json({
-            error: "Erro interno no login."
-        });
+        next(error);
     }
 });
 
 // ======================================================
-// SESSÃO
+// SESSÃO ATUAL
 // ======================================================
 
-app.get("/api/me", auth, (req, res) => {
+app.get("/api/me", requireDatabase, requireAuth, (req, res) => {
     res.json({
-        success: true,
         user: publicUser(req.user)
     });
 });
 
-app.post("/api/logout", auth, async (req, res) => {
+// ======================================================
+// LOGOUT
+// ======================================================
+
+app.post("/api/logout", requireAuth, async (req, res, next) => {
     try {
         req.user.status = "offline";
+        req.user.lastSeen = new Date().toISOString();
+
         await saveDB();
 
         req.session.destroy(err => {
-            if (err) {
-                return res.status(500).json({
-                    error: "Erro ao sair da conta."
-                });
-            }
+            if (err) return next(err);
 
             res.clearCookie("epicchat.sid", {
                 httpOnly: true,
@@ -500,22 +418,17 @@ app.post("/api/logout", auth, async (req, res) => {
 
             res.json({ success: true });
         });
-
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: "Erro ao encerrar a sessão."
-        });
+        next(error);
     }
 });
 
 // ======================================================
-// PESQUISA POR NOME E ID
+// PESQUISAR USUÁRIOS POR NOME OU ID
 // ======================================================
 
-app.get("/api/users/search", auth, (req, res) => {
-    const query = String(req.query.q || "").toLowerCase().trim();
+app.get("/api/users/search", requireDatabase, requireAuth, (req, res) => {
+    const query = String(req.query.q || "").trim().toLowerCase();
 
     if (!query) {
         return res.json({ users: [] });
@@ -523,12 +436,10 @@ app.get("/api/users/search", auth, (req, res) => {
 
     const users = db.users
         .filter(user =>
-            user.id !== req.user.id &&
-            (
-                user.username.toLowerCase().includes(query) ||
-                user.id.toLowerCase().includes(query)
-            )
+            user.id.toLowerCase().includes(query) ||
+            user.username.toLowerCase().includes(query)
         )
+        .filter(user => user.id !== req.user.id)
         .slice(0, 30)
         .map(publicUser);
 
@@ -536,40 +447,32 @@ app.get("/api/users/search", auth, (req, res) => {
 });
 
 // ======================================================
-// PERFIL
+// EDITAR PERFIL
 // ======================================================
 
-app.patch("/api/profile", auth, async (req, res) => {
+app.patch("/api/profile", requireDatabase, requireAuth, async (req, res, next) => {
     try {
-        const { username, avatar } = req.body;
+        const username = String(req.body.username || "").trim();
+        const avatar = req.body.avatar;
 
-        if (username !== undefined) {
-            if (!validUsername(username)) {
-                return res.status(400).json({
-                    error: "O nome precisa ter entre 3 e 24 caracteres."
-                });
-            }
-
-            const existing = findUserByUsername(username);
-
-            if (existing && existing.id !== req.user.id) {
-                return res.status(409).json({
-                    error: "Esse nome já está sendo usado."
-                });
-            }
-
-            req.user.username = username;
+        if (!validUsername(username)) {
+            return res.status(400).json({
+                error: "O nome deve ter entre 3 e 24 caracteres."
+            });
         }
 
-        if (avatar !== undefined) {
-            if (
-                avatar !== null &&
-                (
-                    typeof avatar !== "string" ||
-                    !/^data:image\/(png|jpeg|jpg|webp|gif);base64,/.test(avatar) ||
-                    avatar.length > 4 * 1024 * 1024
-                )
-            ) {
+        const existing = findUserByUsername(username);
+
+        if (existing && existing.id !== req.user.id) {
+            return res.status(409).json({
+                error: "Esse nome já está sendo usado."
+            });
+        }
+
+        if (avatar !== undefined && avatar !== "") {
+            if (typeof avatar !== "string" ||
+                !/^data:image\/(png|jpeg|jpg|webp|gif);base64,/i.test(avatar) ||
+                avatar.length > 5 * 1024 * 1024) {
                 return res.status(400).json({
                     error: "Imagem inválida ou muito grande."
                 });
@@ -578,19 +481,16 @@ app.patch("/api/profile", auth, async (req, res) => {
             req.user.avatar = avatar;
         }
 
+        req.user.username = username;
+
         await saveDB();
 
         res.json({
             success: true,
             user: publicUser(req.user)
         });
-
     } catch (error) {
-        console.error("ERRO NO PERFIL:", error);
-
-        res.status(500).json({
-            error: "Erro ao atualizar perfil."
-        });
+        next(error);
     }
 });
 
@@ -598,22 +498,20 @@ app.patch("/api/profile", auth, async (req, res) => {
 // AMIGOS
 // ======================================================
 
-app.get("/api/friends", auth, (req, res) => {
+app.get("/api/friends", requireDatabase, requireAuth, (req, res) => {
     const friends = req.user.friends
-        .map(id => findUserById(id))
+        .map(id => findUserByID(id))
         .filter(Boolean)
         .map(publicUser);
 
     res.json({ friends });
 });
 
-app.post("/api/friends/request", auth, async (req, res) => {
+// Adiciona um amigo diretamente.
+app.post("/api/friends/request", requireDatabase, requireAuth, async (req, res, next) => {
     try {
-        const { username, userId } = req.body;
-
-        const target = userId
-            ? findUserById(userId)
-            : findUserByUsername(username);
+        const targetID = String(req.body.userId || req.body.id || "");
+        const target = findUserByID(targetID);
 
         if (!target) {
             return res.status(404).json({
@@ -641,19 +539,14 @@ app.post("/api/friends/request", auth, async (req, res) => {
             success: true,
             user: publicUser(target)
         });
-
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: "Erro ao adicionar amigo."
-        });
+        next(error);
     }
 });
 
-app.delete("/api/friends/:userId", auth, async (req, res) => {
+app.delete("/api/friends/:userId", requireDatabase, requireAuth, async (req, res, next) => {
     try {
-        const target = findUserById(req.params.userId);
+        const target = findUserByID(req.params.userId);
 
         req.user.friends = req.user.friends.filter(
             id => id !== req.params.userId
@@ -668,59 +561,65 @@ app.delete("/api/friends/:userId", auth, async (req, res) => {
         await saveDB();
 
         res.json({ success: true });
-
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: "Erro ao remover amigo."
-        });
+        next(error);
     }
 });
 
 // ======================================================
-// CARREGAR MENSAGENS
+// MENSAGENS
 // ======================================================
 
-app.get("/api/messages/:username", auth, (req, res) => {
-    const target = findUserByUsername(req.params.username);
+app.get("/api/messages/:username", requireDatabase, requireAuth, (req, res) => {
+    const targetName = decodeURIComponent(req.params.username);
+    const target = findUserByID(targetName) || findUserByUsername(targetName);
 
     if (!target) {
         return res.status(404).json({
-            error: "Usuário não encontrado."
+            error: "Usuário não encontrado.",
+            messages: []
         });
     }
 
     const messages = db.messages
         .filter(message =>
-            (
-                message.from === req.user.id &&
-                message.to === target.id
-            ) ||
-            (
-                message.from === target.id &&
-                message.to === req.user.id
-            )
+            (message.from === req.user.id && message.to === target.id) ||
+            (message.from === target.id && message.to === req.user.id)
         )
-        .map(message => ({
-            ...message,
-            sender: publicUser(findUserById(message.from))
-        }));
+        .sort((a, b) =>
+            new Date(a.createdAt) - new Date(b.createdAt)
+        )
+        .slice(-300)
+        .map(message => {
+            const sender = findUserByID(message.from);
+
+            return {
+                ...message,
+                sender: publicUser(sender)
+            };
+        });
 
     res.json({ messages });
 });
 
-// ======================================================
-// ENVIAR MENSAGENS
-// ======================================================
-
-async function sendPrivateMessage(req, res) {
+async function sendMessage(req, res, next) {
     try {
-        const { to, username, text } = req.body;
+        const toValue = String(req.body.to || "");
+        const messageText = String(req.body.text || "").trim();
 
-        const target = to
-            ? findUserById(to)
-            : findUserByUsername(username);
+        if (!messageText) {
+            return res.status(400).json({
+                error: "Digite uma mensagem."
+            });
+        }
+
+        if (messageText.length > 5000) {
+            return res.status(400).json({
+                error: "A mensagem é muito grande."
+            });
+        }
+
+        const target = findUserByID(toValue) || findUserByUsername(toValue);
 
         if (!target) {
             return res.status(404).json({
@@ -730,17 +629,7 @@ async function sendPrivateMessage(req, res) {
 
         if (target.id === req.user.id) {
             return res.status(400).json({
-                error: "Não é possível enviar mensagem para si mesmo."
-            });
-        }
-
-        if (
-            typeof text !== "string" ||
-            !text.trim() ||
-            text.length > 5000
-        ) {
-            return res.status(400).json({
-                error: "Mensagem inválida."
+                error: "Você não pode enviar mensagem para si mesmo."
             });
         }
 
@@ -748,7 +637,7 @@ async function sendPrivateMessage(req, res) {
             id: crypto.randomUUID(),
             from: req.user.id,
             to: target.id,
-            text: text.trim(),
+            text: messageText,
             createdAt: new Date().toISOString()
         };
 
@@ -756,50 +645,38 @@ async function sendPrivateMessage(req, res) {
 
         await saveDB();
 
-        res.json({
+        res.status(201).json({
             success: true,
             message: {
                 ...message,
                 sender: publicUser(req.user)
             }
         });
-
     } catch (error) {
-        console.error("ERRO AO ENVIAR MENSAGEM:", error);
-
-        res.status(500).json({
-            error: "Erro ao enviar mensagem."
-        });
+        next(error);
     }
 }
 
-app.post("/api/messages", auth, sendPrivateMessage);
-app.post("/api/messages/send", auth, sendPrivateMessage);
+app.post("/api/messages", requireDatabase, requireAuth, sendMessage);
+app.post("/api/messages/send", requireDatabase, requireAuth, sendMessage);
 
 // ======================================================
-// SERVIDORES
+// CRIAR SERVIDORES
 // ======================================================
 
-app.post("/api/servers", auth, async (req, res) => {
+app.post("/api/servers", requireDatabase, requireAuth, async (req, res, next) => {
     try {
-        const { name, description } = req.body;
+        const name = String(req.body.name || "").trim();
 
-        if (
-            typeof name !== "string" ||
-            name.trim().length < 2 ||
-            name.trim().length > 40
-        ) {
+        if (name.length < 2 || name.length > 40) {
             return res.status(400).json({
-                error: "O nome deve ter entre 2 e 40 caracteres."
+                error: "O nome do servidor deve ter entre 2 e 40 caracteres."
             });
         }
 
         const server = {
-            id: generateServerId(),
-            name: name.trim(),
-            description: typeof description === "string"
-                ? description.slice(0, 300)
-                : "",
+            id: generateServerID(),
+            name,
             owner: req.user.id,
             members: [req.user.id],
             createdAt: new Date().toISOString()
@@ -809,33 +686,33 @@ app.post("/api/servers", auth, async (req, res) => {
 
         await saveDB();
 
-        res.json({
+        res.status(201).json({
             success: true,
             server
         });
-
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: "Erro ao criar servidor."
-        });
+        next(error);
     }
 });
 
-app.get("/api/servers", auth, (req, res) => {
-    const servers = db.servers.filter(
-        server => serverMember(server, req.user.id)
+// ======================================================
+// LISTAR SERVIDORES DO USUÁRIO
+// ======================================================
+
+app.get("/api/servers", requireDatabase, requireAuth, (req, res) => {
+    const servers = db.servers.filter(server =>
+        Array.isArray(server.members) &&
+        server.members.includes(req.user.id)
     );
 
     res.json({ servers });
 });
 
 // ======================================================
-// CONVITES
+// CRIAR CONVITE
 // ======================================================
 
-app.post("/api/servers/:serverId/invites", auth, async (req, res) => {
+app.post("/api/servers/:serverId/invites", requireDatabase, requireAuth, async (req, res, next) => {
     try {
         const server = db.servers.find(
             item => item.id === req.params.serverId
@@ -847,9 +724,9 @@ app.post("/api/servers/:serverId/invites", auth, async (req, res) => {
             });
         }
 
-        if (!serverMember(server, req.user.id)) {
+        if (!server.members.includes(req.user.id)) {
             return res.status(403).json({
-                error: "Você não participa desse servidor."
+                error: "Você não pertence a esse servidor."
             });
         }
 
@@ -864,23 +741,22 @@ app.post("/api/servers/:serverId/invites", auth, async (req, res) => {
 
         await saveDB();
 
-        res.json({
+        res.status(201).json({
             success: true,
             invite
         });
-
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: "Erro ao criar convite."
-        });
+        next(error);
     }
 });
 
-app.post("/api/invites/join", auth, async (req, res) => {
+// ======================================================
+// ENTRAR EM SERVIDOR COM CONVITE
+// ======================================================
+
+app.post("/api/invites/join", requireDatabase, requireAuth, async (req, res, next) => {
     try {
-        const code = String(req.body.code || "").toUpperCase();
+        const code = String(req.body.code || "").trim().toUpperCase();
 
         const invite = db.invites.find(
             item => item.code === code
@@ -912,41 +788,50 @@ app.post("/api/invites/join", auth, async (req, res) => {
             success: true,
             server
         });
-
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: "Erro ao entrar no servidor."
-        });
+        next(error);
     }
 });
 
 // ======================================================
 // ATUALIZAÇÕES
+// Endpoint público para não gerar 401 antes do login.
 // ======================================================
 
-app.get("/api/updates", auth, (req, res) => {
+app.get("/api/updates", requireDatabase, (req, res) => {
     res.json({
         success: true,
         updatedAt: db.updatedAt,
-        user: publicUser(req.user)
+        users: db.users.length,
+        servers: db.servers.length
     });
 });
 
 // ======================================================
-// ROTAS NÃO ENCONTRADAS
+// STATUS DO SERVIDOR
+// ======================================================
+
+app.get("/api/status", (req, res) => {
+    res.json({
+        online: true,
+        databaseReady,
+        service: "Epic Chat"
+    });
+});
+
+// ======================================================
+// ERROS DE ROTAS
 // ======================================================
 
 app.use("/api", (req, res) => {
     res.status(404).json({
-        error: "Rota não encontrada.",
+        error: "Rota da API não encontrada.",
         route: req.originalUrl
     });
 });
 
 app.use((error, req, res, next) => {
-    console.error("ERRO GERAL:", error);
+    console.error("ERRO NO SERVIDOR:", error);
 
     if (res.headersSent) {
         return next(error);
@@ -958,7 +843,7 @@ app.use((error, req, res, next) => {
 });
 
 // ======================================================
-// INICIAR SERVIDOR
+// INICIAR
 // ======================================================
 
 async function startServer() {
@@ -967,22 +852,18 @@ async function startServer() {
 
         app.listen(PORT, () => {
             console.log("");
-            console.log("==================================");
-            console.log("          EPIC CHAT ONLINE");
-            console.log("==================================");
-            console.log("Endereço: http://localhost:" + PORT);
-            console.log("Arquivos:", __dirname);
-            console.log("Usuários:", db.users.length);
-            console.log("Mensagens:", db.messages.length);
-            console.log("Servidores:", db.servers.length);
-            console.log("JSONBin conectado.");
-            console.log("==================================");
+            console.log("================================");
+            console.log("       EPIC CHAT ONLINE");
+            console.log("================================");
+            console.log(`Servidor: http://localhost:${PORT}`);
+            console.log("Banco: JSONBin conectado");
+            console.log(`Contas: ${db.users.length}`);
+            console.log("================================");
+            console.log("");
         });
-
     } catch (error) {
-        console.error("");
-        console.error("FALHA AO INICIAR O EPIC CHAT:");
-        console.error(error);
+        console.error("Não foi possível iniciar o Epic Chat:");
+        console.error(error.message);
         process.exit(1);
     }
 }
