@@ -2,183 +2,1162 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Epic Chat</title>
-  <link rel="icon" href="/icon.png">
-  <link rel="stylesheet" href="/epic_chat.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Epic Chat</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #101010;
+    --panel: #171717;
+    --panel2: #202020;
+    --border: #383838;
+    --accent: #ffff70;
+    --text: #f4f4f4;
+    --muted: #929292;
+    --danger: #ff6262;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Arial, sans-serif;
+    height: 100vh;
+    overflow: hidden;
+}
+
+button, input {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* LOGIN */
+
+#authScreen {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.auth-box {
+    width: 100%;
+    max-width: 390px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 30px;
+}
+
+.logo {
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+.logo img {
+    width: 65px;
+    height: 65px;
+    object-fit: contain;
+}
+
+.logo h1 {
+    margin: 10px 0 0;
+    font-size: 25px;
+}
+
+.auth-box input {
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+input {
+    background: #101010;
+    border: 1px solid var(--border);
+    color: white;
+    padding: 13px;
+    outline: none;
+    border-radius: 3px;
+}
+
+input:focus {
+    border-color: var(--accent);
+}
+
+.main-btn {
+    background: var(--accent);
+    color: #111;
+    border: 0;
+    padding: 13px;
+    font-weight: bold;
+    width: 100%;
+    border-radius: 3px;
+}
+
+.main-btn:hover {
+    filter: brightness(.9);
+}
+
+.auth-switch {
+    margin-top: 18px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.auth-switch span {
+    color: var(--accent);
+    cursor: pointer;
+}
+
+#errorBox {
+    color: var(--danger);
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
+/* APP */
+
+#app {
+    display: flex;
+    height: 100vh;
+}
+
+.sidebar {
+    width: 320px;
+    min-width: 270px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header {
+    padding: 17px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.brand img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+}
+
+.profile-area {
+    padding: 15px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: #303030;
+    border: 1px solid var(--border);
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.profile-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.profile-info strong,
+.profile-info small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profile-info small {
+    color: var(--muted);
+    margin-top: 4px;
+    font-size: 11px;
+}
+
+.small-btn {
+    border: 1px solid var(--border);
+    color: var(--text);
+    background: transparent;
+    padding: 8px 10px;
+    border-radius: 3px;
+}
+
+.small-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.search-area {
+    padding: 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+.section-label {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 9px;
+}
+
+.search-row {
+    display: flex;
+    gap: 6px;
+}
+
+.search-row input {
+    min-width: 0;
+    width: 100%;
+    padding: 10px;
+    font-size: 12px;
+}
+
+.search-row button {
+    background: var(--accent);
+    color: #111;
+    border: 0;
+    padding: 0 12px;
+    font-weight: bold;
+}
+
+.search-results {
+    max-height: 180px;
+    overflow-y: auto;
+    margin-top: 8px;
+}
+
+.result-item {
+    padding: 9px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    font-size: 13px;
+}
+
+.result-item:hover {
+    background: var(--panel2);
+    border-color: var(--border);
+}
+
+.result-item img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #333;
+}
+
+.result-item small {
+    display: block;
+    color: var(--muted);
+    margin-top: 3px;
+}
+
+.friend-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.friend-item {
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    margin-bottom: 5px;
+}
+
+.friend-item:hover,
+.friend-item.active {
+    background: var(--panel2);
+    border-color: var(--border);
+}
+
+.friend-item img {
+    width: 38px;
+    height: 38px;
+    object-fit: cover;
+    border-radius: 50%;
+    background: #333;
+}
+
+.friend-item small {
+    color: var(--muted);
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+}
+
+.sidebar-footer {
+    padding: 12px;
+    border-top: 1px solid var(--border);
+}
+
+/* CHAT */
+
+.chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.chat-header {
+    height: 70px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 12px;
+}
+
+.chat-header img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #333;
+}
+
+.chat-header strong {
+    display: block;
+}
+
+.chat-header small {
+    display: block;
+    color: var(--muted);
+    margin-top: 4px;
+}
+
+.chat-placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    text-align: center;
+    padding: 25px;
+}
+
+.chat-placeholder h2 {
+    color: white;
+    margin-bottom: 8px;
+}
+
+.messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.message {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    max-width: 80%;
+}
+
+.message.mine {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.message img {
+    width: 34px;
+    height: 34px;
+    object-fit: cover;
+    border-radius: 50%;
+    background: #333;
+}
+
+.message-content {
+    min-width: 0;
+}
+
+.message-name {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 5px;
+}
+
+.message.mine .message-name {
+    text-align: right;
+}
+
+.message-text {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    padding: 11px 13px;
+    border-radius: 4px;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    line-height: 1.4;
+}
+
+.message.mine .message-text {
+    border-color: #64643a;
+    background: #29291e;
+}
+
+.message-time {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 5px;
+}
+
+.message.mine .message-time {
+    text-align: right;
+}
+
+.composer {
+    padding: 15px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+}
+
+.composer input {
+    flex: 1;
+    min-width: 0;
+}
+
+.composer button {
+    background: var(--accent);
+    border: 0;
+    padding: 0 22px;
+    font-weight: bold;
+    color: #111;
+    border-radius: 3px;
+}
+
+.status {
+    width: 8px;
+    height: 8px;
+    background: #777;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+}
+
+.status.online {
+    background: #70db80;
+}
+
+/* MODAL PERFIL */
+
+.modal {
+    position: fixed;
+    inset: 0;
+    background: #000b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    padding: 20px;
+}
+
+.modal-box {
+    width: 100%;
+    max-width: 400px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 22px;
+}
+
+.modal-box h2 {
+    margin-top: 0;
+}
+
+.modal-box input {
+    width: 100%;
+    margin: 8px 0 13px;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.modal-actions button {
+    flex: 1;
+}
+
+@media(max-width: 700px) {
+    .sidebar {
+        width: 105px;
+        min-width: 105px;
+    }
+
+    .brand span,
+    .profile-info,
+    .profile-area .small-btn,
+    .section-label,
+    .search-row button,
+    .friend-item .friend-text,
+    .sidebar-footer span {
+        display: none;
+    }
+
+    .profile-area {
+        justify-content: center;
+    }
+
+    .search-row input {
+        font-size: 10px;
+        padding: 8px 4px;
+    }
+
+    .search-results {
+        position: absolute;
+        z-index: 5;
+        background: var(--panel);
+        width: 220px;
+        left: 90px;
+    }
+
+    .friend-item {
+        justify-content: center;
+        padding: 8px 0;
+    }
+
+    .friend-item img {
+        width: 42px;
+        height: 42px;
+    }
+
+    .sidebar-footer button {
+        width: 100%;
+        font-size: 10px;
+        padding: 7px 2px;
+    }
+
+    .messages {
+        padding: 12px;
+    }
+
+    .message {
+        max-width: 95%;
+    }
+
+    .composer {
+        padding: 9px;
+    }
+
+    .composer button {
+        padding: 0 12px;
+    }
+}
+</style>
 </head>
+<script src="/epic_chat.js" defer></script>
 <body>
-  <div id="authScreen" class="auth-screen">
-    <div class="auth-card">
-      <img src="/icon.png" class="logo" alt="Epic Chat">
-      <h1>EPIC CHAT</h1>
-      <p class="muted">Seu espaço para conversar.</p>
 
-      <div class="tabs">
-        <button id="loginTab" class="tab active">Entrar</button>
-        <button id="registerTab" class="tab">Criar conta</button>
-      </div>
+<!-- LOGIN / CADASTRO -->
 
-      <form id="authForm">
-        <label>USUÁRIO</label>
-        <input id="authUsername" minlength="3" maxlength="24" required autocomplete="username">
-        <label>SENHA</label>
-        <input id="authPassword" type="password" minlength="6" required autocomplete="current-password">
-        <div id="authError" class="error"></div>
-        <button class="primary full" type="submit" id="authSubmit">ENTRAR</button>
-      </form>
+<section id="authScreen">
+    <div class="auth-box">
+        <div class="logo">
+            <img src="/icon.png" onerror="this.style.display='none'">
+            <h1>EPIC CHAT</h1>
+        </div>
+
+        <div id="loginForm">
+            <h2>Entrar</h2>
+            <div id="errorBox"></div>
+
+            <input id="loginUsername" placeholder="Nome de usuário" autocomplete="username">
+            <input id="loginPassword" type="password" placeholder="Senha" autocomplete="current-password">
+
+            <button class="main-btn" onclick="login()">ENTRAR</button>
+
+            <div class="auth-switch">
+                Não tem conta?
+                <span onclick="showRegister()">Criar conta</span>
+            </div>
+        </div>
+
+        <div id="registerForm" class="hidden">
+            <h2>Criar conta</h2>
+            <div id="registerError" style="color:var(--danger);font-size:13px;margin-bottom:10px"></div>
+
+            <input id="registerUsername" placeholder="Nome de usuário (3 a 24 caracteres)" maxlength="24">
+            <input id="registerPassword" type="password" placeholder="Senha (mínimo 6 caracteres)">
+
+            <button class="main-btn" onclick="register()">CRIAR CONTA</button>
+
+            <div class="auth-switch">
+                Já tem conta?
+                <span onclick="showLogin()">Entrar</span>
+            </div>
+        </div>
     </div>
-  </div>
+</section>
 
-  <main id="app" class="app hidden">
-    <aside class="rail">
-      <div class="rail-logo"><img src="/icon.png" alt="Epic"></div>
-      <button class="rail-button active" title="Mensagens">✉</button>
-      <button class="rail-button" id="railCreateServer" title="Criar servidor">＋</button>
-      <div class="rail-bottom">
-        <button class="rail-button" id="logoutButton" title="Sair">↪</button>
-      </div>
-    </aside>
+<!-- APLICATIVO -->
+
+<section id="app" class="hidden">
 
     <aside class="sidebar">
-      <header class="side-header">
-        <div>
-          <strong>EPIC CHAT</strong>
-          <small>COMUNICAÇÃO</small>
+
+        <div class="sidebar-header">
+            <div class="brand">
+                <img src="/icon.png" onerror="this.style.display='none'">
+                <span>EPIC CHAT</span>
+            </div>
         </div>
-        <button class="small-icon" id="profileButton" title="Editar perfil">⚙</button>
-      </header>
 
-      <section class="account">
-        <div class="avatar large" id="myAvatar">?</div>
-        <div class="account-info">
-          <strong id="myName">Usuário</strong>
-          <small id="myId">000:000.0</small>
+        <div class="profile-area">
+            <img id="myAvatar" class="avatar">
+            <div class="profile-info">
+                <strong id="myUsername">Usuário</strong>
+                <small id="myId">ID: --</small>
+            </div>
+            <button class="small-btn" onclick="openProfile()">⚙</button>
         </div>
-        <span class="online-dot"></span>
-      </section>
 
-      <div class="section-title">
-        <span>MENSAGENS</span>
-        <button class="small-icon" id="addFriendButton" title="Adicionar amigo">＋</button>
-      </div>
-      <div id="friendsList" class="friends-list"></div>
+        <div class="search-area">
+            <div class="section-label">Pesquisar usuário</div>
 
-      <div class="section-title server-title">
-        <span>SERVIDORES</span>
-        <button class="small-icon" id="createServerButton" title="Criar servidor">＋</button>
-      </div>
-      <div id="serversList" class="servers-list"></div>
+            <div class="search-row">
+                <input id="userSearch" placeholder="Nome ou ID..." onkeydown="if(event.key==='Enter') searchUsers()">
+                <button onclick="searchUsers()">BUSCAR</button>
+            </div>
 
-      <button class="join-server" id="joinServerButton">＋ Entrar com convite</button>
+            <div id="searchResults" class="search-results"></div>
+        </div>
+
+        <div class="friend-list">
+            <div class="section-label">Conversas / Amigos</div>
+            <div id="friendList"></div>
+        </div>
+
+        <div class="sidebar-footer">
+            <button class="small-btn" onclick="loadFriends()">↻ Atualizar conversas</button>
+            <button class="small-btn" onclick="logout()">Sair da conta</button>
+        </div>
+
     </aside>
 
-    <section class="chat">
-      <header class="chat-header">
-        <div class="chat-person">
-          <div class="avatar" id="chatAvatar">?</div>
-          <div>
-            <strong id="chatName">Selecione uma conversa</strong>
-            <small id="chatSubtitle">EPIC CHAT</small>
-          </div>
+    <main class="chat-area">
+
+        <div id="emptyChat" class="chat-placeholder">
+            <h2>EPIC CHAT</h2>
+            <p>Pesquise alguém pelo nome ou ID para começar uma conversa.</p>
         </div>
-        <div class="chat-actions">
-          <button class="small-icon" id="refreshButton" title="Atualizar">↻</button>
+
+        <div id="activeChat" class="hidden" style="display:flex;flex-direction:column;flex:1;min-height:0">
+
+            <header class="chat-header">
+                <img id="chatAvatar">
+                <div>
+                    <strong id="chatUsername">Usuário</strong>
+                    <small id="chatUserId">ID: --</small>
+                </div>
+            </header>
+
+            <div id="messages" class="messages"></div>
+
+            <form class="composer" onsubmit="sendMessage(event)">
+                <input id="messageInput" placeholder="Digite sua mensagem..." maxlength="5000" autocomplete="off">
+                <button type="submit">ENVIAR</button>
+            </form>
+
         </div>
-      </header>
 
-      <div id="emptyChat" class="empty-chat">
-        <img src="/icon.png" alt="">
-        <h2>Bem-vindo ao Epic Chat</h2>
-        <p>Escolha um amigo para começar uma conversa.</p>
-      </div>
+    </main>
+</section>
 
-      <div id="messages" class="messages hidden"></div>
+<!-- EDITAR PERFIL -->
 
-      <form id="messageForm" class="message-form hidden">
-        <input id="messageInput" maxlength="2000" placeholder="Digite sua mensagem..." autocomplete="off">
-        <button class="primary send-button" type="submit">Enviar</button>
-      </form>
-    </section>
-  </main>
+<div id="profileModal" class="modal hidden">
+    <div class="modal-box">
+        <h2>Editar perfil</h2>
 
-  <div id="profileModal" class="modal-back hidden">
-    <div class="modal">
-      <h2>Editar perfil</h2>
-      <p class="muted">Seu ID de jogador não muda quando você troca de nome.</p>
-      <div class="profile-preview">
-        <div class="avatar xlarge" id="profileAvatar">?</div>
-        <label class="file-button">Escolher foto
-          <input id="avatarFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
-        </label>
-      </div>
-      <label>NOME DE USUÁRIO</label>
-      <input id="profileUsername" maxlength="24" minlength="3">
-      <label>ID DE JOGADOR</label>
-      <input id="profileId" readonly>
-      <div id="profileError" class="error"></div>
-      <div class="modal-actions">
-        <button class="secondary" data-close="profileModal">Cancelar</button>
-        <button class="primary" id="saveProfile">Salvar</button>
-      </div>
+        <label>Nome de usuário</label>
+        <input id="editUsername" maxlength="24">
+
+        <label>Imagem de perfil</label>
+        <input id="editAvatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+
+        <div class="modal-actions">
+            <button class="main-btn" onclick="saveProfile()">SALVAR</button>
+            <button class="small-btn" onclick="closeProfile()">CANCELAR</button>
+        </div>
     </div>
-  </div>
+</div>
 
-  <div id="friendModal" class="modal-back hidden">
-    <div class="modal">
-      <h2>Adicionar amigo</h2>
-      <p class="muted">Pesquise pelo nome ou ID do jogador.</p>
-      <label>NOME OU ID</label>
-      <input id="friendSearch" placeholder="Nome ou 000:000.0">
-      <button class="primary full" id="searchFriend">Pesquisar</button>
-      <div id="friendResults"></div>
-      <div id="friendError" class="error"></div>
-      <div class="modal-actions">
-        <button class="secondary" data-close="friendModal">Fechar</button>
-      </div>
-    </div>
-  </div>
+<script>
+const API = "/api";
 
-  <div id="serverModal" class="modal-back hidden">
-    <div class="modal">
-      <h2>Criar servidor</h2>
-      <label>NOME DO SERVIDOR</label>
-      <input id="serverName" maxlength="32" placeholder="Meu servidor">
-      <div id="serverError" class="error"></div>
-      <div class="modal-actions">
-        <button class="secondary" data-close="serverModal">Cancelar</button>
-        <button class="primary" id="confirmServer">Criar servidor</button>
-      </div>
-    </div>
-  </div>
+let currentUser = null;
+let activeUser = null;
+let currentMessages = [];
+let polling = null;
 
-  <div id="inviteModal" class="modal-back hidden">
-    <div class="modal">
-      <h2>Convite do servidor</h2>
-      <p class="muted">Compartilhe este código com seus amigos.</p>
-      <input id="inviteCode" readonly>
-      <div class="modal-actions">
-        <button class="secondary" data-close="inviteModal">Fechar</button>
-        <button class="primary" id="copyInvite">Copiar código</button>
-      </div>
-    </div>
-  </div>
+const $ = id => document.getElementById(id);
 
-  <div id="joinModal" class="modal-back hidden">
-    <div class="modal">
-      <h2>Entrar em servidor</h2>
-      <label>CÓDIGO DO CONVITE</label>
-      <input id="joinCode" placeholder="EPIC-XXXXXXXX">
-      <div id="joinError" class="error"></div>
-      <div class="modal-actions">
-        <button class="secondary" data-close="joinModal">Cancelar</button>
-        <button class="primary" id="confirmJoin">Entrar</button>
-      </div>
-    </div>
-  </div>
+function escapeText(value) {
+    return String(value ?? "");
+}
 
-  <div id="toast" class="toast"></div>
-  <script src="/epic_chat.js"></script>
+function avatarSource(value) {
+    return value || "/icon.png";
+}
+
+async function api(url, options = {}) {
+    const response = await fetch(API + url, {
+        credentials: "same-origin",
+        ...options,
+        headers: {
+            ...(options.body ? {"Content-Type":"application/json"} : {}),
+            ...(options.headers || {})
+        }
+    });
+
+    let data;
+
+    try {
+        data = await response.json();
+    } catch {
+        data = {};
+    }
+
+    if (!response.ok) {
+        throw new Error(data.error || "Erro na solicitação (" + response.status + ")");
+    }
+
+    return data;
+}
+
+function showLogin() {
+    $("loginForm").classList.remove("hidden");
+    $("registerForm").classList.add("hidden");
+    $("errorBox").textContent = "";
+}
+
+function showRegister() {
+    $("loginForm").classList.add("hidden");
+    $("registerForm").classList.remove("hidden");
+}
+
+async function login() {
+    $("errorBox").textContent = "";
+
+    try {
+        const data = await api("/login", {
+            method: "POST",
+            body: JSON.stringify({
+                username: $("loginUsername").value.trim(),
+                password: $("loginPassword").value
+            })
+        });
+
+        currentUser = data.user;
+        await startApp();
+
+    } catch (error) {
+        $("errorBox").textContent = error.message;
+    }
+}
+
+async function register() {
+    $("registerError").textContent = "";
+
+    try {
+        const data = await api("/register", {
+            method: "POST",
+            body: JSON.stringify({
+                username: $("registerUsername").value.trim(),
+                password: $("registerPassword").value
+            })
+        });
+
+        currentUser = data.user;
+        await startApp();
+
+    } catch (error) {
+        $("registerError").textContent = error.message;
+    }
+}
+
+async function startApp() {
+    $("authScreen").classList.add("hidden");
+    $("app").classList.remove("hidden");
+
+    updateMyProfile();
+    await loadFriends();
+
+    try {
+        const me = await api("/me");
+        currentUser = me.user;
+        updateMyProfile();
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function updateMyProfile() {
+    if (!currentUser) return;
+
+    $("myUsername").textContent = currentUser.username;
+    $("myId").textContent = "ID: " + currentUser.id;
+    $("myAvatar").src = avatarSource(currentUser.avatar);
+}
+
+async function logout() {
+    try {
+        await api("/logout", {method:"POST"});
+    } catch (error) {
+        console.error(error);
+    }
+
+    clearInterval(polling);
+    currentUser = null;
+    activeUser = null;
+
+    $("app").classList.add("hidden");
+    $("authScreen").classList.remove("hidden");
+    showLogin();
+}
+
+async function loadFriends() {
+    try {
+        const data = await api("/friends");
+        renderFriends(data.friends || []);
+    } catch (error) {
+        console.error("Erro ao carregar amigos:", error);
+    }
+}
+
+function renderFriends(friends) {
+    const container = $("friendList");
+    container.innerHTML = "";
+
+    if (!friends.length) {
+        container.innerHTML =
+            '<p style="color:#888;font-size:12px;text-align:center">Nenhuma conversa ainda.</p>';
+        return;
+    }
+
+    friends.forEach(user => {
+        const item = document.createElement("div");
+        item.className = "friend-item";
+
+        if (activeUser && activeUser.id === user.id) {
+            item.classList.add("active");
+        }
+
+        const img = document.createElement("img");
+        img.src = avatarSource(user.avatar);
+
+        const text = document.createElement("div");
+        text.className = "friend-text";
+
+        const name = document.createElement("strong");
+        name.textContent = user.username;
+
+        const id = document.createElement("small");
+        id.textContent = user.id;
+
+        text.append(name, id);
+        item.append(img, text);
+
+        item.onclick = () => openChat(user);
+
+        container.appendChild(item);
+    });
+}
+
+async function searchUsers() {
+    const query = $("userSearch").value.trim();
+    const results = $("searchResults");
+
+    results.innerHTML = "";
+
+    if (!query) {
+        results.textContent = "Digite um nome ou ID.";
+        return;
+    }
+
+    results.textContent = "Pesquisando...";
+
+    try {
+        const data = await api("/users/search?q=" + encodeURIComponent(query));
+        const users = data.users || [];
+
+        results.innerHTML = "";
+
+        if (!users.length) {
+            results.textContent = "Nenhum usuário encontrado.";
+            return;
+        }
+
+        users.forEach(user => {
+            const item = document.createElement("div");
+            item.className = "result-item";
+
+            const img = document.createElement("img");
+            img.src = avatarSource(user.avatar);
+
+            const text = document.createElement("div");
+
+            const name = document.createElement("strong");
+            name.textContent = user.username;
+
+            const id = document.createElement("small");
+            id.textContent = "ID: " + user.id;
+
+            text.append(name, id);
+            item.append(img, text);
+
+            item.onclick = () => openChat(user);
+
+            results.appendChild(item);
+        });
+
+    } catch (error) {
+        results.textContent = error.message;
+    }
+}
+
+async function openChat(user) {
+    activeUser = user;
+
+    $("emptyChat").classList.add("hidden");
+    $("activeChat").classList.remove("hidden");
+
+    $("chatAvatar").src = avatarSource(user.avatar);
+    $("chatUsername").textContent = user.username;
+    $("chatUserId").textContent = "ID: " + user.id;
+
+    // Adiciona à lista local para manter a conversa acessível.
+    const friendsData = await api("/friends").catch(() => ({friends:[]}));
+    const friends = friendsData.friends || [];
+
+    if (!friends.some(friend => friend.id === user.id)) {
+        friends.push(user);
+    }
+
+    renderFriends(friends);
+
+    await loadMessages();
+
+    clearInterval(polling);
+    polling = setInterval(loadMessages, 2500);
+
+    $("messageInput").focus();
+}
+
+async function loadMessages() {
+    if (!activeUser) return;
+
+    try {
+        const data = await api("/messages/" + encodeURIComponent(activeUser.username));
+
+        const messages = data.messages || [];
+
+        const changed = JSON.stringify(messages) !== JSON.stringify(currentMessages);
+
+        if (changed) {
+            currentMessages = messages;
+            renderMessages(messages);
+        }
+
+    } catch (error) {
+        console.error("Erro ao carregar mensagens:", error);
+    }
+}
+
+function renderMessages(messages) {
+    const container = $("messages");
+    const wasAtBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+
+    container.innerHTML = "";
+
+    messages.forEach(message => {
+        const mine = message.from === currentUser.id;
+
+        const sender = mine
+            ? currentUser
+            : (message.sender || activeUser);
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "message" + (mine ? " mine" : "");
+
+        const img = document.createElement("img");
+        img.src = avatarSource(sender?.avatar);
+
+        const content = document.createElement("div");
+        content.className = "message-content";
+
+        const name = document.createElement("div");
+        name.className = "message-name";
+        name.textContent = sender?.username || "Usuário";
+
+        const text = document.createElement("div");
+        text.className = "message-text";
+        text.textContent = message.text || "";
+
+        const time = document.createElement("div");
+        time.className = "message-time";
+
+        if (message.createdAt) {
+            const date = new Date(message.createdAt);
+            time.textContent = date.toLocaleString("pt-BR");
+        }
+
+        content.append(name, text, time);
+        wrapper.append(img, content);
+        container.appendChild(wrapper);
+    });
+
+    if (wasAtBottom || messages.length <= 1) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+async function sendMessage(event) {
+    event.preventDefault();
+
+    if (!activeUser) return;
+
+    const input = $("messageInput");
+    const text = input.value.trim();
+
+    if (!text) return;
+
+    input.value = "";
+
+    try {
+        await api("/messages", {
+            method: "POST",
+            body: JSON.stringify({
+                to: activeUser.id,
+                text
+            })
+        });
+
+        await loadMessages();
+
+    } catch (error) {
+        alert("Não foi possível enviar: " + error.message);
+        input.value = text;
+    }
+
+    input.focus();
+}
+
+function openProfile() {
+    $("editUsername").value = currentUser.username;
+    $("editAvatar").value = "";
+    $("profileModal").classList.remove("hidden");
+}
+
+function closeProfile() {
+    $("profileModal").classList.add("hidden");
+}
+
+async function saveProfile() {
+    try {
+        const username = $("editUsername").value.trim();
+        const file = $("editAvatar").files[0];
+
+        let avatar;
+
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+                alert("A imagem deve ter no máximo 2 MB.");
+                return;
+            }
+
+            avatar = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        const body = {username};
+
+        if (avatar !== undefined) {
+            body.avatar = avatar;
+        }
+
+        const data = await api("/profile", {
+            method: "PATCH",
+            body: JSON.stringify(body)
+        });
+
+        currentUser = data.user;
+        updateMyProfile();
+
+        if (activeUser && activeUser.id === currentUser.id) {
+            activeUser = currentUser;
+        }
+
+        closeProfile();
+        await loadMessages();
+
+        alert("Perfil atualizado!");
+
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
+// Verifica se já existe uma sessão ao abrir o site.
+async function checkSession() {
+    try {
+        const data = await api("/me");
+        currentUser = data.user;
+        await startApp();
+    } catch {
+        $("authScreen").classList.remove("hidden");
+        $("app").classList.add("hidden");
+    }
+}
+
+checkSession();
+</script>
+
 </body>
 </html>
